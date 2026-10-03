@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "open-source-finder"
+version = "0.1.0"
+description = "Find good first issues in any GitHub repo, judged by TypeSafe's Jev model"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = ["typesafe-sdk>=0.7"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+open-source-finder = "open_source_finder.cli:main"
+
+[tool.setuptools]
+packages = ["open_source_finder"]
