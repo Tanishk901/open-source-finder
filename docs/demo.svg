@@ -18,7 +18,7 @@
   <text x="430" y="22" text-anchor="middle" class="dim">open-source-finder</text>
 
   <text x="20" y="62" xml:space="preserve"><tspan class="prompt">$</tspan> open-source-finder scan owner/repo --top 3</text>
-  <text x="20" y="96" xml:space="preserve" class="head">owner/repo - best issues for a first contribution - judged by Jev (jev)</text>
+  <text x="20" y="96" xml:space="preserve" class="head">owner/repo - best issues for a first contribution - judged by Jev (jev-latest)</text>
   <text x="20" y="130" xml:space="preserve" class="dim"> #  Issue                                                 Beginner  Clear  Size    Flags</text>
 
   <text x="20" y="156" xml:space="preserve"> <tspan class="num">1</tspan>  #812   Typo in "Configuration" section of README        <tspan class="good">0.93</tspan>   0.91  tiny    <tspan class="flag">gfi-label</tspan></text>

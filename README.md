@@ -71,7 +71,7 @@ open-source-finder scan pandas-dev/pandas --json > issues.json
 | `--json` | off | Print full results as JSON |
 | `--judge` | `jev` | Who judges the issues: `jev` or `mock` |
 | `--mock` | off | Shorthand for `--judge mock`: keyword rules, no API key needed |
-| `--model` | `jev` | TypeSafe model name |
+| `--model` | `jev-latest` | TypeSafe model: `jev-latest` or `jev-preview` |
 
 Set `GITHUB_TOKEN` (in `.env` or your environment) to raise GitHub's rate limit from 60 to
 5,000 requests an hour. Without it, keep `--max-issues` small.

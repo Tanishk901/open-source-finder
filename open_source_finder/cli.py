@@ -34,7 +34,7 @@ def main(argv=None):
     scan.add_argument("--json", action="store_true", help="print full results as JSON")
     scan.add_argument("--judge", choices=JUDGES, default="jev", help="who judges the issues (default jev)")
     scan.add_argument("--mock", action="store_true", help="shorthand for --judge mock (no API key needed)")
-    scan.add_argument("--model", default="jev", help="TypeSafe model name (default jev)")
+    scan.add_argument("--model", default="jev-latest", help="TypeSafe model: jev-latest (default) or jev-preview")
     args = parser.parse_args(argv)
     if args.mock:
         args.judge = "mock"
@@ -63,6 +63,11 @@ def main(argv=None):
         except budget.BudgetExceeded as error:
             print(f"\n{error} Showing the {len(judged)} issues judged so far.", file=sys.stderr)
             break
+        except Exception as error:
+            # SDK errors (bad key, unknown model, rate limit) carry a clear message; show it, not a traceback.
+            if type(error).__module__.startswith("typesafe_sdk"):
+                sys.exit(f"\nTypeSafe API error: {error}")
+            raise
     print(file=sys.stderr)
 
     ranked, skipped = rank(judged)

@@ -81,7 +81,7 @@ def build_state(repo, issue):
 
 
 class JevJudge:
-    def __init__(self, model="jev"):
+    def __init__(self, model="jev-latest"):
         self.client = TypeSafeClient(model=model)
 
     def judge(self, repo, issue):
