@@ -195,6 +195,19 @@ input tokens, a 30-issue scan costs well under a cent. Check
 A spending cap is built in. Total spend is tracked in `~/.open-source-finder/spend.json`, and the
 run stops before any request that could cross `$5.00` (set `JEV_BUDGET_USD` to change this).
 
+## Troubleshooting
+
+| You see | What it means | Fix |
+| --- | --- | --- |
+| `The module '.venv' could not be loaded` (PowerShell) | You're not in the project folder. | `cd` into `open-source-finder` first, then run the command again. |
+| `No TYPESAFE_API_KEY found` | There's no `.env`, or the key line still says `paste_your_key_here`. | Follow [Add your API key](#add-your-api-key), or try `--mock`. |
+| `GitHub rate limit hit. It resets in about N minute(s).` | You've used GitHub's 60 requests an hour for unauthenticated users. | Add a free `GITHUB_TOKEN` (see [Add your API key](#add-your-api-key)), or wait. |
+| `TypeSafe API error: ... Unknown model` | The `--model` name isn't one your account offers. | Use `jev-latest` (the default) or `jev-preview`. |
+| `TypeSafe API error: ... 401` | The API key is wrong or was revoked. | Create a new key in the [TypeSafe console](https://console.typesafe.ai/keys) and update `.env`. |
+| `Not found: /repos/...` | There's a typo in the repo name, or the repo is private. | Use the `owner/name` from the repo's GitHub URL. |
+| `... spent of $5.00 limit; stopping.` | The spending cap was reached. | Raise `JEV_BUDGET_USD` in `.env` if you want to spend more. |
+| `owner/repo` gives "Not found" | `owner/repo` is a placeholder. | Use a real repo, e.g. `rust-lang/rustlings`. |
+
 ## Roadmap
 
 - [x] Judge issues with Jev
