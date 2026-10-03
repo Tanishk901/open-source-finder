@@ -54,7 +54,13 @@ def _get(path):
         if error.code == 404:
             raise GitHubError(f"Not found: {path}. Check the owner/repo name.") from error
         if error.code in (403, 429):
-            raise GitHubError("GitHub rate limit hit. Set GITHUB_TOKEN to get a higher limit.") from error
+            reset = error.headers.get("X-RateLimit-Reset")
+            when = ""
+            if reset:
+                minutes = max(1, -(-(int(reset) - int(datetime.now(timezone.utc).timestamp())) // 60))
+                when = f" It resets in about {minutes} minute(s)."
+            hint = "" if os.environ.get("GITHUB_TOKEN") else " Set GITHUB_TOKEN in .env to raise the limit to 5,000/hour."
+            raise GitHubError(f"GitHub rate limit hit.{when}{hint}") from error
         raise GitHubError(f"GitHub returned {error.code} for {path}") from error
     except urllib.error.URLError as error:
         raise GitHubError(f"Could not reach GitHub: {error.reason}") from error
