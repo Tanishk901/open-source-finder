@@ -105,6 +105,21 @@ Set `GITHUB_TOKEN` (in `.env` or your environment) to raise GitHub's rate limit 
    Jev answers the questions; the code decides what to do with the answers. To change the
    weights or thresholds, edit the constants at the top of `rank.py`.
 
+## What Jev catches
+
+Real examples from the first scans (October 2026):
+
+- **Already claimed.** In `rust-lang/rustlings`, issue
+  [#1937](https://github.com/rust-lang/rustlings/issues/1937) looks perfect for a beginner:
+  small, and with a clarity of 0.94. But in its comments the maintainer says, *"I will take care
+  of it before releasing v7, no help needed."* Jev flagged it **claimed**, so it was sorted to
+  the bottom instead of being recommended.
+- **Not a task.** In `fastapi/fastapi`, Jev skipped the pinned "Roadmap" issue and a
+  promotional post. Both are open issues, but neither is something a contributor can fix.
+- **Better than keywords.** The `--mock` keyword rules gave almost every rustlings issue the
+  same score. Jev spread them from 0.30 to 0.93, with a tiny, clearly described docs fix at the
+  top.
+
 ## Cost
 
 Each judged issue is one Jev request of roughly 1,000–3,000 input tokens (issue bodies are cut
