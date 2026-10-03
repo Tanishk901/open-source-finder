@@ -1,5 +1,10 @@
 # open-source-finder
 
+[![tests](https://github.com/Tanishk901/open-source-finder/actions/workflows/test.yml/badge.svg)](https://github.com/Tanishk901/open-source-finder/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)
+[![Built with Jev](https://img.shields.io/badge/built%20with-Jev-8250df.svg)](https://docs.typesafe.ai)
+
 **Find the open issues in any GitHub repo that suit a first-time contributor.**
 
 Most repos have dozens of open issues, and only a few are a good first contribution. The
@@ -20,15 +25,42 @@ narrow questions with typed, calibrated answers instead of generated text.
 > You can try everything else for free with `--mock`.
 > This is a community project, not affiliated with TypeSafe AI.
 
+## Contents
+
+- [Install](#install)
+- [Add your API key](#add-your-api-key)
+- [Use](#use)
+- [How it works](#how-it-works)
+- [What Jev catches](#what-jev-catches)
+- [Cost](#cost)
+- [Troubleshooting](#troubleshooting)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+
 ## Install
 
-Requires Python 3.10+.
+You need Python 3.10 or newer and git.
+
+**Windows (PowerShell):**
+
+```powershell
+git clone https://github.com/Tanishk901/open-source-finder
+cd open-source-finder
+python -m venv .venv
+.venv\Scripts\python -m pip install -e .
+```
+
+**macOS / Linux:**
 
 ```bash
 git clone https://github.com/Tanishk901/open-source-finder
 cd open-source-finder
-pip install -e .
+python3 -m venv .venv
+.venv/bin/python -m pip install -e .
 ```
+
+This installs the `open-source-finder` command inside the project's own `.venv` folder, so
+it doesn't affect the rest of your system.
 
 ## Add your API key
 
@@ -48,22 +80,57 @@ pip install -e .
    TYPESAFE_API_KEY=your-key-here
    ```
 
-`.env` is listed in `.gitignore`, so your key is never committed. Run the tool from the same
-folder, because it reads `.env` from the current directory. You can also set
+`.env` is listed in `.gitignore`, so your key is never committed. The tool reads `.env` from
+the folder you run it in, or else from the project folder. You can also set
 `TYPESAFE_API_KEY` as an environment variable instead.
 
+**Optional: GitHub token.** Without one, GitHub allows only 60 requests an hour, which is
+about two scans. A free token raises this to 5,000:
+
+1. Open [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new).
+2. Name it `open-source-finder` and set **Repository access** to **Public repositories (read-only)**.
+   No other permissions are needed.
+3. Click **Generate token**, then paste the token after `GITHUB_TOKEN=` in `.env`.
+
 ## Use
+
+From the `open-source-finder` folder, run `scan` with any public repo written as `owner/name`.
+
+**Windows (PowerShell):**
+
+```powershell
+.venv\Scripts\open-source-finder scan rust-lang/rustlings
+```
+
+**macOS / Linux:**
+
+```bash
+.venv/bin/open-source-finder scan rust-lang/rustlings
+```
+
+If you activate the virtual environment first (`.venv\Scriptsctivate` on Windows,
+`source .venv/bin/activate` on macOS/Linux), you can type just `open-source-finder`.
+The examples below use that short form:
 
 ```bash
 # Try it without any key (keyword rules instead of Jev, much less accurate):
 open-source-finder scan pandas-dev/pandas --mock
 
-# With Jev (after adding your key):
-open-source-finder scan pandas-dev/pandas --top 10
+# Show only the best 5 issues:
+open-source-finder scan pandas-dev/pandas --top 5
 
 # Machine-readable output, including every raw judgment:
 open-source-finder scan pandas-dev/pandas --json > issues.json
 ```
+
+**Reading the results:**
+
+| Column | Meaning |
+| --- | --- |
+| **Beginner** | Overall fit for a first contribution, from 0 to 1. Higher is better. |
+| **Clear** | How clearly the issue says what to do and how to check it, from 0 to 1. |
+| **Size** | How big the change is: tiny, small, medium, large, or huge. |
+| **Flags** | `claimed`: someone is on it, or maintainers declined it. `unsure`: Jev wasn't confident, so read it yourself. `gfi-label`: maintainers labeled it "good first issue". |
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -74,8 +141,6 @@ open-source-finder scan pandas-dev/pandas --json > issues.json
 | `--mock` | off | Shorthand for `--judge mock`: keyword rules, no API key needed |
 | `--model` | `jev-latest` | TypeSafe model: `jev-latest` or `jev-preview` |
 
-Set `GITHUB_TOKEN` (in `.env` or your environment) to raise GitHub's rate limit from 60 to
-5,000 requests an hour. Without it, keep `--max-issues` small.
 
 ## How it works
 
