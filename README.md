@@ -108,7 +108,7 @@ From the `open-source-finder` folder, run `scan` with any public repo written as
 .venv/bin/open-source-finder scan rust-lang/rustlings
 ```
 
-If you activate the virtual environment first (`.venv\Scriptsctivate` on Windows,
+If you activate the virtual environment first (`.venv\Scripts\activate` on Windows,
 `source .venv/bin/activate` on macOS/Linux), you can type just `open-source-finder`.
 The examples below use that short form:
 
