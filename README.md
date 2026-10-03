@@ -7,9 +7,10 @@ Most repos have dozens of open issues, and only a few are a good first contribut
 already took. `open-source-finder` reads each open issue and ranks them by how small, clear, and
 self-contained they are. It also flags issues that someone is already working on.
 
-![Example output: a ranked table of beginner-friendly issues with scores, sizes, flags and links](docs/demo.svg)
+![Real output for rust-lang/rustlings: a ranked table of beginner-friendly issues with scores, sizes, flags and links](docs/demo.svg)
 
-The output above is illustrative.
+Real output from a scan of [rust-lang/rustlings](https://github.com/rust-lang/rustlings) on
+4 October 2026 (rows 5–9 left out). Your results will change as issues are opened and closed.
 
 Built with [Jev](https://docs.typesafe.ai), TypeSafe AI's System One model, which answers
 narrow questions with typed, calibrated answers instead of generated text.
