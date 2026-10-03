@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="300" viewBox="0 0 900 300" role="img" aria-label="Where to put your API key: create a file named .env in the project folder and set TYPESAFE_API_KEY in it">
+  <style>
+    text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; fill: #1f2328; }
+    .sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .label { font-size: 12px; font-weight: 600; fill: #57606a; letter-spacing: 0.5px; }
+    .dim { fill: #6e7781; }
+    .hl { fill: #1a7f37; font-weight: bold; }
+    .note { font-size: 13px; fill: #1a7f37; }
+    .ed { fill: #c9d1d9; }
+    .key { fill: #79c0ff; }
+    .val { fill: #ffa657; font-weight: bold; }
+    .cmt { fill: #8b949e; }
+  </style>
+  <rect width="900" height="300" rx="12" fill="#f6f8fa"/>
+
+  <!-- Folder tree -->
+  <text x="28" y="38" class="sans label">YOUR PROJECT FOLDER</text>
+  <rect x="20" y="52" width="380" height="226" rx="10" fill="#ffffff" stroke="#d0d7de" stroke-width="1.5"/>
+  <text x="40" y="84" xml:space="preserve">📁 open-source-finder/</text>
+  <text x="40" y="110" xml:space="preserve" class="dim">  ├── open_source_finder/</text>
+  <text x="40" y="134" xml:space="preserve" class="dim">  ├── tests/</text>
+  <text x="40" y="158" xml:space="preserve">  ├── .env.example   <tspan class="sans note">← copy this…</tspan></text>
+  <rect x="34" y="168" width="356" height="28" rx="6" fill="#dafbe1" stroke="#2da44e" stroke-width="1.5"/>
+  <text x="40" y="187" xml:space="preserve" class="hl">  ├── .env           <tspan class="sans note">← …to this name</tspan></text>
+  <text x="40" y="216" xml:space="preserve" class="dim">  ├── README.md</text>
+  <text x="40" y="240" xml:space="preserve" class="dim">  └── pyproject.toml</text>
+
+  <!-- Arrow -->
+  <path d="M392 182 C 430 182, 430 140, 462 140" stroke="#2da44e" stroke-width="2.5" fill="none"/>
+  <path d="M456 133 L466 140 L456 147 z" fill="#2da44e"/>
+
+  <!-- Editor -->
+  <text x="478" y="38" class="sans label">INSIDE .env</text>
+  <rect x="470" y="52" width="410" height="226" rx="10" fill="#0d1117"/>
+  <rect x="470" y="52" width="410" height="30" rx="10" fill="#161b22"/>
+  <rect x="470" y="72" width="410" height="10" fill="#161b22"/>
+  <text x="490" y="72" class="cmt" font-size="12">.env</text>
+  <rect x="478" y="122" width="394" height="28" rx="5" fill="#1f6feb" opacity="0.25"/>
+  <text x="488" y="112" xml:space="preserve" class="cmt" font-size="13"># paste your TypeSafe key after the =</text>
+  <text x="488" y="141" xml:space="preserve"><tspan class="key">TYPESAFE_API_KEY</tspan><tspan class="ed">=</tspan><tspan class="val">your-key-here</tspan></text>
+  <text x="488" y="182" xml:space="preserve" class="cmt" font-size="13"># optional</text>
+  <text x="488" y="206" xml:space="preserve"><tspan class="key">GITHUB_TOKEN</tspan><tspan class="ed">=</tspan></text>
+  <text x="488" y="230" xml:space="preserve"><tspan class="key">JEV_BUDGET_USD</tspan><tspan class="ed">=5.00</tspan></text>
+  <text x="488" y="262" xml:space="preserve" class="cmt" font-size="12">.env is in .gitignore, so it is never committed</text>
+</svg>

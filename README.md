@@ -7,21 +7,7 @@ Most repos have dozens of open issues, and only a few are a good first contribut
 already took. `open-source-finder` reads each open issue and ranks them by how small, clear, and
 self-contained they are. It also flags issues that someone is already working on.
 
-```text
-$ open-source-finder scan owner/repo --top 3
-
-owner/repo - best issues for a first contribution - judged by Jev (jev)
-
- #  Issue                                                 Beginner  Clear  Size    Flags
- 1  #812  Typo in "Configuration" section of README           0.93   0.91  tiny    gfi-label
-    https://github.com/owner/repo/issues/812
- 2  #790  Error message for missing config file is unclear    0.81   0.86  small
-    https://github.com/owner/repo/issues/790
- 3  #774  Add test for empty input to parse_args()            0.78   0.80  small   unsure
-    https://github.com/owner/repo/issues/774
-
-Skipped 6 issue(s) that look like questions or discussions.
-```
+![Example output: a ranked table of beginner-friendly issues with scores, sizes, flags and links](docs/demo.svg)
 
 The output above is illustrative.
 
@@ -43,14 +29,35 @@ cd open-source-finder
 pip install -e .
 ```
 
+## Add your API key
+
+![Copy .env.example to .env in the project folder, then paste your key after TYPESAFE_API_KEY=](docs/api-key.svg)
+
+1. Get a key from the [TypeSafe console](https://console.typesafe.ai/keys).
+2. In the `open-source-finder` folder, copy `.env.example` to a new file named `.env`:
+
+   ```bash
+   cp .env.example .env      # macOS / Linux / Git Bash
+   copy .env.example .env    # Windows Command Prompt
+   ```
+
+3. Open `.env` and replace `paste_your_key_here` with your key:
+
+   ```ini
+   TYPESAFE_API_KEY=your-key-here
+   ```
+
+`.env` is listed in `.gitignore`, so your key is never committed. Run the tool from the same
+folder, because it reads `.env` from the current directory. You can also set
+`TYPESAFE_API_KEY` as an environment variable instead.
+
 ## Use
 
 ```bash
 # Try it without any key (keyword rules instead of Jev, much less accurate):
 open-source-finder scan pandas-dev/pandas --mock
 
-# With Jev:
-cp .env.example .env        # then paste your TYPESAFE_API_KEY into .env
+# With Jev (after adding your key):
 open-source-finder scan pandas-dev/pandas --top 10
 
 # Machine-readable output, including every raw judgment:
@@ -70,6 +77,8 @@ Set `GITHUB_TOKEN` (in `.env` or your environment) to raise GitHub's rate limit 
 5,000 requests an hour. Without it, keep `--max-issues` small.
 
 ## How it works
+
+![How it works: fetch issues, ask Jev five questions per issue, rank in code, show your list](docs/how-it-works.svg)
 
 1. **Fetch** open issues from the GitHub API. Pull requests and assigned issues are dropped,
    and the latest 5 comments are read for each remaining issue.
