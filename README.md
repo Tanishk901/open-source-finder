@@ -219,15 +219,38 @@ Judges are pluggable. A judge is any class with `judge(repo, issue)` that return
 register it in `JUDGES` and `make_judge()` in [`cli.py`](open_source_finder/cli.py). The ranking
 code doesn't change.
 
-## Development
+## Contributing
 
-```bash
-pip install -e ".[test]"
-pytest
-```
+Contributions are welcome, including from first-time contributors. That's the point of this
+project.
 
-The tests cover the ranking policy, conversion of SDK responses, and the budget cap. They use no
-network and need no API key.
+1. Fork the repo and clone your fork.
+2. Install with the test extras, then run the tests:
+
+   ```bash
+   python -m venv .venv
+   .venv/bin/python -m pip install -e ".[test]"     # Windows: .venv\Scripts\python ...
+   .venv/bin/python -m pytest
+   ```
+
+   The tests use no network and need no API key. They cover the ranking policy, conversion of
+   SDK responses, and the budget cap.
+3. Make your change on a new branch, add or update a test if behavior changes, and open a pull
+   request that explains what you changed and why.
+
+**Project layout:**
+
+| File | What it does |
+| --- | --- |
+| [`cli.py`](open_source_finder/cli.py) | Command-line options, running the scan, and printing the table or JSON |
+| [`github.py`](open_source_finder/github.py) | Fetching issues and comments from the GitHub API |
+| [`judge.py`](open_source_finder/judge.py) | The five Jev questions and turning answers into a `Judgment` |
+| [`rank.py`](open_source_finder/rank.py) | Weights, thresholds, flags, and sorting (pure code, no network) |
+| [`mock.py`](open_source_finder/mock.py) | Keyword-based judge for trying the tool without a key |
+| [`budget.py`](open_source_finder/budget.py) | Loading `.env`, and the spending cap |
+
+**Good places to start:** a new judge (see [Roadmap](#roadmap)), better mock rules, or tuning
+the thresholds in `rank.py` against real repos.
 
 ## Credits
 
