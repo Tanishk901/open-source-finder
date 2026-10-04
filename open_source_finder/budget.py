@@ -9,7 +9,7 @@ import json
 import os
 from pathlib import Path
 
-LIMIT_USD = float(os.environ.get("JEV_BUDGET_USD", "5.00"))
+DEFAULT_LIMIT_USD = 5.00
 PRICE_PER_INPUT_TOKEN = 0.042 / 1_000_000  # Jev: $0.042 per million input tokens, output is free
 MAX_TOKENS_PER_REQUEST = 64_000            # Jev's per-request limit, so the worst-case cost of one call
 
@@ -32,6 +32,14 @@ def load_env():
     return bool(key) and key != PLACEHOLDER
 
 
+def limit_usd():
+    """The spending cap. Read on every call so a JEV_BUDGET_USD set in .env is honored."""
+    try:
+        return float(os.environ.get("JEV_BUDGET_USD") or DEFAULT_LIMIT_USD)
+    except ValueError:
+        return DEFAULT_LIMIT_USD
+
+
 class BudgetExceeded(Exception):
     pass
 
@@ -46,8 +54,8 @@ def check():
     """Call before each request. Raises BudgetExceeded if the next call could cross the limit."""
     spent = _load()["usd"]
     worst_case = MAX_TOKENS_PER_REQUEST * PRICE_PER_INPUT_TOKEN
-    if spent + worst_case > LIMIT_USD:
-        raise BudgetExceeded(f"${spent:.4f} spent of ${LIMIT_USD:.2f} limit; stopping.")
+    if spent + worst_case > limit_usd():
+        raise BudgetExceeded(f"${spent:.4f} spent of ${limit_usd():.2f} limit; stopping.")
 
 
 def record(usage):
@@ -63,6 +71,6 @@ def record(usage):
 def summary():
     data = _load()
     return (
-        f"Total Jev spend so far: ${data['usd']:.6f} of ${LIMIT_USD:.2f} "
+        f"Total Jev spend so far: ${data['usd']:.6f} of ${limit_usd():.2f} "
         f"({data['requests']} requests, {data['input_tokens']:,} input tokens)"
     )

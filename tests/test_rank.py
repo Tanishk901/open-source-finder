@@ -91,8 +91,16 @@ def test_to_judgment_normalizes_real_sdk_response():
 
 def test_budget_refuses_call_that_could_cross_limit(tmp_path, monkeypatch):
     monkeypatch.setattr(budget, "SPEND_FILE", tmp_path / "spend.json")
-    monkeypatch.setattr(budget, "LIMIT_USD", 0.01)
+    monkeypatch.setenv("JEV_BUDGET_USD", "0.01")
     budget.check()  # nothing spent yet: allowed
     budget.record(SimpleNamespace(input_tokens=200_000))  # ~$0.0084 spent
     with pytest.raises(budget.BudgetExceeded):
         budget.check()
+
+
+def test_budget_limit_set_in_env_file_is_honored(tmp_path, monkeypatch):
+    monkeypatch.delenv("JEV_BUDGET_USD", raising=False)
+    (tmp_path / ".env").write_text("JEV_BUDGET_USD=0.50\n", encoding="utf-8")
+    monkeypatch.setattr(budget, "ENV_FILES", [tmp_path / ".env"])
+    budget.load_env()
+    assert budget.limit_usd() == 0.50
