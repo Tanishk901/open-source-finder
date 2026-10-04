@@ -189,3 +189,39 @@ def test_github_errors_explain_the_cause(monkeypatch, code, headers, expected):
     monkeypatch.setattr(github.urllib.request, "urlopen", fail)
     with pytest.raises(github.GitHubError, match=expected):
         github.fetch_repo("a/b")
+
+
+def fake_issue(number, labels=(), pr=False, assigned=False):
+    raw = {"number": number, "title": f"Issue {number}", "body": "", "html_url": f"https://x/{number}",
+           "created_at": "2026-01-01T00:00:00Z", "comments": 0,
+           "labels": [{"name": n} for n in labels], "assignees": [{"login": "a"}] if assigned else []}
+    if pr:
+        raw["pull_request"] = {}
+    return raw
+
+
+def test_fetch_issues_puts_beginner_labeled_issues_first(monkeypatch):
+    labels = [{"name": n} for n in ("bug", "help wanted", "Good First Issue", "docs")]
+    newest = [fake_issue(9), fake_issue(8, pr=True), fake_issue(7, assigned=True), fake_issue(6), fake_issue(2)]
+    by_label = {"Good%20First%20Issue": [fake_issue(2, ["Good First Issue"])],
+                "help%20wanted": [fake_issue(3, ["help wanted"]), fake_issue(2)]}
+
+    def fake_get(path):
+        if "/labels?" in path:
+            return labels
+        if "labels=" in path:
+            label = path.split("labels=")[1].split("&")[0]
+            return by_label[label] if "page=1" in path else []
+        return newest if "page=1" in path else []
+
+    monkeypatch.setattr(github, "_get", fake_get)
+    assert github.beginner_labels("a/b") == ["Good First Issue", "help wanted"]
+    # good-first first, then help-wanted, then newest; PRs, assigned issues and duplicates dropped
+    assert [i.number for i in github.fetch_issues("a/b", 10)] == [2, 3, 9, 6]
+    assert [i.number for i in github.fetch_issues("a/b", 2)] == [2, 3]
+
+
+def test_beginner_labels_skip_look_alikes(monkeypatch):
+    names = ["easy close", "I-lang-easy-decision", "D-newcomer-roadblock", "E-easy", "good first issue"]
+    monkeypatch.setattr(github, "_get", lambda path: [{"name": n} for n in names] if "page=1" in path else [])
+    assert github.beginner_labels("a/b") == ["good first issue", "E-easy"]

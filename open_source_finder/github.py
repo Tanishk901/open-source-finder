@@ -7,6 +7,7 @@ import json
 import os
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -15,6 +16,15 @@ API = "https://api.github.com"
 BODY_CHARS = 3000      # keep Jev requests small and cheap
 COMMENT_CHARS = 500
 RECENT_COMMENTS = 5
+
+# Labels repos use for newcomer-friendly issues, most specific first.
+BEGINNER_LABEL_PATTERNS = [re.compile(p, re.IGNORECASE) for p in (
+    r"good[\s_-]*first", r"first[\s_-]*timers?", r"beginner|newcomer|starter|low[\s_-]*hanging",
+    r"\beasy\b|e-easy|difficulty[:/ ]*easy", r"help[\s_-]*wanted",
+)]
+# ...but not labels like "easy close", "I-lang-easy-decision" or "D-newcomer-roadblock".
+NOT_BEGINNER_LABEL = re.compile(r"close|decision|roadblock", re.IGNORECASE)
+MAX_BEGINNER_LABELS = 5
 
 
 class GitHubError(Exception):
@@ -95,21 +105,50 @@ def fetch_repo(full_name):
                 language=data.get("language") or "unknown")
 
 
-def fetch_issues(full_name, max_issues):
-    """Open, unassigned issues (pull requests excluded), newest first, with their latest comments."""
-    issues = []
-    page = 1
-    while len(issues) < max_issues:
-        batch = _get(f"/repos/{full_name}/issues?state=open&per_page=100&page={page}")
-        if not batch:
+def beginner_labels(full_name):
+    """The repo's labels that commonly mark newcomer-friendly issues, most specific first."""
+    names = []
+    for page in range(1, 11):  # up to 1,000 labels (rust-lang/rust has almost 1,000)
+        batch = _get(f"/repos/{full_name}/labels?per_page=100&page={page}")
+        names += [label["name"] for label in batch]
+        if len(batch) < 100:
             break
-        for raw in batch:
-            if "pull_request" in raw or raw.get("assignees"):
-                continue
-            issues.append(_to_issue(raw))
-            if len(issues) == max_issues:
+    ranked = []
+    for name in names:
+        if NOT_BEGINNER_LABEL.search(name):
+            continue
+        for priority, pattern in enumerate(BEGINNER_LABEL_PATTERNS):
+            if pattern.search(name):
+                ranked.append((priority, name))
                 break
-        page += 1
+    return [name for _, name in sorted(ranked)][:MAX_BEGINNER_LABELS]
+
+
+def fetch_issues(full_name, max_issues):
+    """Open, unassigned issues (pull requests excluded), with their latest comments.
+
+    Issues with newcomer-friendly labels come first, then the newest issues fill the rest.
+    Labels only choose which issues get judged; they don't affect the score."""
+    issues, seen = [], set()
+
+    def take(path):
+        page = 1
+        while len(issues) < max_issues:
+            batch = _get(f"{path}&per_page=100&page={page}")
+            for raw in batch:
+                if "pull_request" in raw or raw.get("assignees") or raw["number"] in seen:
+                    continue
+                seen.add(raw["number"])
+                issues.append(_to_issue(raw))
+                if len(issues) == max_issues:
+                    return
+            if len(batch) < 100:
+                return
+            page += 1
+
+    for label in beginner_labels(full_name):
+        take(f"/repos/{full_name}/issues?state=open&labels={urllib.parse.quote(label)}")
+    take(f"/repos/{full_name}/issues?state=open")
 
     for issue in issues:
         if issue.comment_count:
