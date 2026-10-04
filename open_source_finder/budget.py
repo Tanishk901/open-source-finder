@@ -25,7 +25,7 @@ PLACEHOLDER = "paste_your_key_here"
 def parse_env(text):
     """Parse KEY=value lines. Handles a UTF-8 BOM, quotes, and `# comments` after a value."""
     values = {}
-    for line in text.lstrip("﻿").splitlines():
+    for line in text.lstrip("\ufeff").splitlines():
         key, sep, value = line.partition("=")
         key = key.strip()
         if not sep or not key or key.startswith("#"):
