@@ -155,3 +155,27 @@ def test_parse_repo_rejects_non_repos(text):
 def test_top_must_be_positive(value):
     with pytest.raises(SystemExit):
         cli.main(["scan", "a/b", "--top", value, "--mock"])
+
+
+def http_error(code, headers=None):
+    import email.message
+    import urllib.error
+    msg = email.message.Message()
+    for k, v in (headers or {}).items():
+        msg[k] = v
+    return urllib.error.HTTPError("https://api.github.com/x", code, "err", msg, None)
+
+
+@pytest.mark.parametrize("code, headers, expected", [
+    (401, {}, "rejected GITHUB_TOKEN"),
+    (403, {"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "9999999999"}, "rate limit"),
+    (429, {}, "rate limit"),
+    (403, {"X-RateLimit-Remaining": "4000"}, "refused access"),
+    (404, {}, "Not found"),
+])
+def test_github_errors_explain_the_cause(monkeypatch, code, headers, expected):
+    def fail(*args, **kwargs):
+        raise http_error(code, headers)
+    monkeypatch.setattr(github.urllib.request, "urlopen", fail)
+    with pytest.raises(github.GitHubError, match=expected):
+        github.fetch_repo("a/b")

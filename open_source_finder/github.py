@@ -54,7 +54,14 @@ def _get(path):
     except urllib.error.HTTPError as error:
         if error.code == 404:
             raise GitHubError(f"Not found: {path}. Check the owner/repo name.") from error
-        if error.code in (403, 429):
+        if error.code == 401:
+            raise GitHubError("GitHub rejected GITHUB_TOKEN: it is wrong, expired, or revoked. "
+                              "Create a new one, or remove it from .env to run without a token.") from error
+        rate_limited = error.code == 429 or error.headers.get("X-RateLimit-Remaining") == "0"
+        if error.code == 403 and not rate_limited:
+            raise GitHubError(f"GitHub refused access to {path} (403). If you set GITHUB_TOKEN, check that it "
+                              "can read public repositories.") from error
+        if rate_limited:
             reset = error.headers.get("X-RateLimit-Reset")
             when = ""
             if reset:
