@@ -9,6 +9,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -16,6 +17,7 @@ API = "https://api.github.com"
 BODY_CHARS = 3000      # keep Jev requests small and cheap
 COMMENT_CHARS = 500
 RECENT_COMMENTS = 5
+WORKERS = 8            # parallel requests for comments
 
 # Labels repos use for newcomer-friendly issues, most specific first.
 BEGINNER_LABEL_PATTERNS = [re.compile(p, re.IGNORECASE) for p in (
@@ -150,9 +152,10 @@ def fetch_issues(full_name, max_issues):
         take(f"/repos/{full_name}/issues?state=open&labels={urllib.parse.quote(label)}")
     take(f"/repos/{full_name}/issues?state=open")
 
-    for issue in issues:
-        if issue.comment_count:
-            issue.recent_comments = _recent_comments(full_name, issue)
+    with ThreadPoolExecutor(WORKERS) as pool:
+        commented = [issue for issue in issues if issue.comment_count]
+        for issue, comments in zip(commented, pool.map(lambda i: _recent_comments(full_name, i), commented)):
+            issue.recent_comments = comments
     return issues
 
 

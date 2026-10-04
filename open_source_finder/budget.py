@@ -7,6 +7,8 @@ could push the total past the limit, even in the worst case.
 
 import json
 import os
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 
 DEFAULT_LIMIT_USD = 5.00
@@ -67,22 +69,37 @@ def _load():
     return {"input_tokens": 0, "requests": 0, "usd": 0.0}
 
 
-def check():
-    """Call before each request. Raises BudgetExceeded if the next call could cross the limit."""
-    spent = _load()["usd"]
-    worst_case = MAX_TOKENS_PER_REQUEST * PRICE_PER_INPUT_TOKEN
-    if spent + worst_case > limit_usd():
-        raise BudgetExceeded(f"${spent:.4f} spent of ${limit_usd():.2f} limit; stopping.")
+WORST_CASE_USD = MAX_TOKENS_PER_REQUEST * PRICE_PER_INPUT_TOKEN
+_lock = threading.Lock()
+_in_flight = 0  # requests started but not yet recorded; each could cost up to WORST_CASE_USD
+
+
+@contextmanager
+def reserve():
+    """Wrap each Jev request. Refuses to start it if it, plus every request already running,
+    could push spending past the limit. Safe to use from several threads at once."""
+    global _in_flight
+    with _lock:
+        spent = _load()["usd"]
+        if spent + (_in_flight + 1) * WORST_CASE_USD > limit_usd():
+            raise BudgetExceeded(f"${spent:.4f} spent of ${limit_usd():.2f} limit; stopping.")
+        _in_flight += 1
+    try:
+        yield
+    finally:
+        with _lock:
+            _in_flight -= 1
 
 
 def record(usage):
     """Call after each request with response.usage."""
-    data = _load()
-    data["input_tokens"] += usage.input_tokens or 0
-    data["requests"] += 1
-    data["usd"] = data["input_tokens"] * PRICE_PER_INPUT_TOKEN
-    SPEND_FILE.parent.mkdir(parents=True, exist_ok=True)
-    SPEND_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    with _lock:
+        data = _load()
+        data["input_tokens"] += usage.input_tokens or 0
+        data["requests"] += 1
+        data["usd"] = data["input_tokens"] * PRICE_PER_INPUT_TOKEN
+        SPEND_FILE.parent.mkdir(parents=True, exist_ok=True)
+        SPEND_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 def summary():

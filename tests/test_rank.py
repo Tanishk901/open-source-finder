@@ -102,10 +102,44 @@ def test_to_judgment_normalizes_real_sdk_response():
 def test_budget_refuses_call_that_could_cross_limit(tmp_path, monkeypatch):
     monkeypatch.setattr(budget, "SPEND_FILE", tmp_path / "spend.json")
     monkeypatch.setenv("JEV_BUDGET_USD", "0.01")
-    budget.check()  # nothing spent yet: allowed
-    budget.record(SimpleNamespace(input_tokens=200_000))  # ~$0.0084 spent
+    with budget.reserve():  # nothing spent yet: allowed
+        budget.record(SimpleNamespace(input_tokens=200_000))  # ~$0.0084 spent
     with pytest.raises(budget.BudgetExceeded):
-        budget.check()
+        with budget.reserve():
+            pass
+
+
+def test_budget_counts_requests_already_running(tmp_path, monkeypatch):
+    monkeypatch.setattr(budget, "SPEND_FILE", tmp_path / "spend.json")
+    monkeypatch.setenv("JEV_BUDGET_USD", str(budget.WORST_CASE_USD * 2.5))  # room for 2 at once
+    with budget.reserve(), budget.reserve():
+        with pytest.raises(budget.BudgetExceeded):
+            with budget.reserve():
+                pass
+    with budget.reserve():  # finished requests free their reservation
+        pass
+
+
+class FakeJudge:
+    def __init__(self, fail_on=None):
+        self.fail_on = fail_on
+
+    def judge(self, repo, issue):
+        if issue.number == self.fail_on:
+            raise budget.BudgetExceeded("limit")
+        return judgment()
+
+
+def test_judge_all_keeps_issue_order():
+    issues = [SimpleNamespace(number=n) for n in range(20)]
+    judged = cli.judge_all(FakeJudge(), None, issues)
+    assert [i.number for i, _ in judged] == list(range(20))
+
+
+def test_judge_all_stops_on_budget_and_keeps_finished_results():
+    issues = [SimpleNamespace(number=n) for n in range(3)]
+    judged = cli.judge_all(FakeJudge(fail_on=0), None, issues)
+    assert 0 not in [i.number for i, _ in judged]
 
 
 def test_budget_limit_set_in_env_file_is_honored(tmp_path, monkeypatch):
@@ -247,3 +281,13 @@ def test_table_columns_stay_aligned_with_six_digit_issue_numbers(capsys):
 def test_beginner_label_flag(name, expected):
     ranked, _ = rank([(issue(1, labels=[name]), judgment())])
     assert ("beginner-label" in ranked[0].flags) == expected
+
+
+def test_judge_all_ctrl_c_keeps_finished_results():
+    class Interrupted:
+        def judge(self, repo, issue):
+            if issue.number == 5:
+                raise KeyboardInterrupt
+            return judgment()
+    judged = cli.judge_all(Interrupted(), None, [SimpleNamespace(number=n) for n in range(6)])
+    assert 5 not in [i.number for i, _ in judged]

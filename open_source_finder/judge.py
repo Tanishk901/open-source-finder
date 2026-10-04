@@ -89,9 +89,9 @@ class JevJudge:
         self.client = TypeSafeClient(model=model)
 
     def judge(self, repo, issue):
-        budget.check()
-        response = self.client.system_one(build_state(repo, issue), QUESTIONS)
-        budget.record(response.usage)
+        with budget.reserve():
+            response = self.client.system_one(build_state(repo, issue), QUESTIONS)
+            budget.record(response.usage)
         return to_judgment(response)
 
 

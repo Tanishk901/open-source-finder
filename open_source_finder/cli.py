@@ -3,12 +3,14 @@
 import argparse
 import json
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 
 from . import budget, github
 from .rank import MIN_BEGINNER, NOT_A_TASK, TOO_HARD, rank, size_label
 
 TITLE_WIDTH = 46
+WORKERS = 8  # Jev requests in flight at once
 
 # A judge is any object with judge(repo, issue) -> rank.Judgment.
 # To add a new one (e.g. a local LLM), write the class and register it here.
@@ -59,31 +61,49 @@ def main(argv=None):
     judge = make_judge(args.judge, args.model)
 
     try:
+        print("Fetching issues from GitHub...", file=sys.stderr, flush=True)
         repo = github.fetch_repo(github.parse_repo(args.repo))
         issues = github.fetch_issues(repo.full_name, args.max_issues)
     except github.GitHubError as error:
         sys.exit(str(error))
+    except KeyboardInterrupt:
+        sys.exit("\nCancelled.")
 
-    judged = []
-    for i, issue in enumerate(issues, 1):
-        print(f"\rJudging issue {i}/{len(issues)}...", end="", file=sys.stderr, flush=True)
-        try:
-            judged.append((issue, judge.judge(repo, issue)))
-        except budget.BudgetExceeded as error:
-            print(f"\n{error} Showing the {len(judged)} issues judged so far.", file=sys.stderr)
-            break
-        except Exception as error:
-            # SDK errors (bad key, unknown model, rate limit) carry a clear message; show it, not a traceback.
-            if type(error).__module__.startswith("typesafe_sdk"):
-                sys.exit(f"\nTypeSafe API error: {error}")
-            raise
-    print(file=sys.stderr)
+    judged = judge_all(judge, repo, issues)
 
     ranked, skipped = rank(judged, min_beginner=0 if args.all else MIN_BEGINNER)
     if args.json:
         print_json(repo, ranked, skipped, args)
     else:
         print_table(repo, ranked[:args.top], skipped, args)
+
+
+def judge_all(judge, repo, issues):
+    """Judge issues WORKERS at a time. Stops early, keeping what's done, on the spending cap or Ctrl+C."""
+    judged = []
+    pool = ThreadPoolExecutor(WORKERS)
+    futures = {pool.submit(judge.judge, repo, issue): issue for issue in issues}
+    try:
+        for done, future in enumerate(as_completed(futures), 1):
+            print(f"\rJudging issues: {done}/{len(issues)}", end="", file=sys.stderr, flush=True)
+            try:
+                judged.append((futures[future], future.result()))
+            except budget.BudgetExceeded as error:
+                print(f"\n{error} Showing the {len(judged)} issues judged so far.", file=sys.stderr)
+                break
+            except Exception as error:
+                # SDK errors (bad key, unknown model, rate limit) carry a clear message; show it, not a traceback.
+                if type(error).__module__.startswith("typesafe_sdk"):
+                    pool.shutdown(cancel_futures=True)
+                    sys.exit(f"\nTypeSafe API error: {error}")
+                raise
+    except KeyboardInterrupt:
+        print(f"\nStopped. Showing the {len(judged)} issues judged so far.", file=sys.stderr)
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+    print(file=sys.stderr)
+    order = {issue.number: i for i, issue in enumerate(issues)}
+    return sorted(judged, key=lambda pair: order[pair[0].number])
 
 
 def print_table(repo, ranked, skipped, args):
