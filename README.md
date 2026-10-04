@@ -94,7 +94,8 @@ about two scans. A free token raises this to 5,000:
 
 ## Use
 
-From the `open-source-finder` folder, run `scan` with any public repo written as `owner/name`.
+From the `open-source-finder` folder, run `scan` with any public repo, written as `owner/name`
+or pasted as a GitHub link (`https://github.com/rust-lang/rustlings` works too).
 
 **Windows (PowerShell):**
 
@@ -136,7 +137,8 @@ open-source-finder scan pandas-dev/pandas --json > issues.json
 | --- | --- | --- |
 | `--top N` | 10 | How many issues to show |
 | `--max-issues N` | 30 | How many open issues to fetch and judge (one Jev request each) |
-| `--json` | off | Print full results as JSON |
+| `--all` | off | Also show issues judged too big or complex for a first contribution |
+| `--json` | off | Print full results as JSON, including skipped issues and their scores |
 | `--judge` | `jev` | Who judges the issues: `jev` or `mock` |
 | `--mock` | off | Shorthand for `--judge mock`: keyword rules, no API key needed |
 | `--model` | `jev-latest` | TypeSafe model: `jev-latest` or `jev-preview` |
@@ -146,8 +148,11 @@ open-source-finder scan pandas-dev/pandas --json > issues.json
 
 ![How it works: fetch issues, ask Jev five questions per issue, rank in code, show your list](docs/how-it-works.svg)
 
-1. **Fetch** open issues from the GitHub API. Pull requests and assigned issues are dropped,
-   and the latest 5 comments are read for each remaining issue.
+1. **Fetch** open issues from the GitHub API. Issues with newcomer labels the repo uses
+   (`good first issue`, `first timers only`, `E-easy`, `help wanted`, …) come first, then the
+   newest issues fill up to `--max-issues`. Pull requests and assigned issues are dropped, and
+   the latest 5 comments are read for each remaining issue. Labels only decide which issues get
+   judged; they never change a score.
 2. **Judge.** Each issue goes to Jev in one request with five questions that run in parallel:
 
    | Question | Type | What it asks |
@@ -162,8 +167,11 @@ open-source-finder scan pandas-dev/pandas --json > issues.json
    - Issues with `actionable < 0.5` are skipped.
    - The beginner score is `0.4 × small scope + 0.3 × clarity + 0.3 × low context needed`,
      each normalized to 0–1.
+   - A beginner score below 0.45 → hidden as too big or complex (shown with `--all`).
    - `claimed > 0.6` → flagged **claimed** and sorted to the bottom.
-   - Any Score answered with confidence below 0.5 → flagged **unsure**.
+   - Any Score answered with confidence below 0.3 → flagged **unsure**.
+
+   These thresholds were tuned on 120 real issues from pandas, rust, freeCodeCamp, and ruff.
    - A newcomer label such as `good first issue` is shown as **beginner-label**, but it doesn't
      change the score, so you can compare Jev's view with the maintainers'.
 
@@ -207,6 +215,9 @@ run stops before any request that could cross `$5.00` (set `JEV_BUDGET_USD` to c
 | `Not found: /repos/...` | There's a typo in the repo name, or the repo is private. | Use the `owner/name` from the repo's GitHub URL. |
 | `... spent of $5.00 limit; stopping.` | The spending cap was reached. | Raise `JEV_BUDGET_USD` in `.env` if you want to spend more. |
 | `owner/repo` gives "Not found" | `owner/repo` is a placeholder. | Use a real repo, e.g. `rust-lang/rustlings`. |
+| `GitHub rejected GITHUB_TOKEN` | The token in `.env` is wrong, expired, or revoked. | Create a new token, or delete the `GITHUB_TOKEN` line to run without one. |
+| `... is not a GitHub repo` | The repo argument isn't `owner/name` or a GitHub link. | Copy the link from the repo's page on github.com. |
+| `Hid N issue(s) that look too big or complex` | Not an error: those issues scored under 0.45. | Add `--all` to see them anyway. |
 
 ## Roadmap
 
