@@ -107,7 +107,7 @@ def print_table(repo, ranked, skipped, args):
         print(f"Hid {too_hard} issue(s) that look too big or complex for a first contribution "
               "(show them with --all).")
     print("Flags: claimed = someone is already on it or it was declined; unsure = Jev was not confident; "
-          "gfi-label = maintainers labeled it 'good first issue'.")
+          "beginner-label = maintainers labeled it for newcomers (e.g. 'good first issue').")
     if args.judge == "jev":
         print(budget.summary())
 

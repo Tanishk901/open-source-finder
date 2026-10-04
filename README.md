@@ -130,7 +130,7 @@ open-source-finder scan pandas-dev/pandas --json > issues.json
 | **Beginner** | Overall fit for a first contribution, from 0 to 1. Higher is better. |
 | **Clear** | How clearly the issue says what to do and how to check it, from 0 to 1. |
 | **Size** | How big the change is: tiny, small, medium, large, or huge. |
-| **Flags** | `claimed`: someone is on it, or maintainers declined it. `unsure`: Jev wasn't confident, so read it yourself. `gfi-label`: maintainers labeled it "good first issue". |
+| **Flags** | `claimed`: someone is on it, or maintainers declined it. `unsure`: Jev wasn't confident, so read it yourself. `beginner-label`: maintainers labeled it for newcomers (e.g. "good first issue", "first timers only", "E-easy"). |
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -164,8 +164,8 @@ open-source-finder scan pandas-dev/pandas --json > issues.json
      each normalized to 0–1.
    - `claimed > 0.6` → flagged **claimed** and sorted to the bottom.
    - Any Score answered with confidence below 0.5 → flagged **unsure**.
-   - The existing `good first issue` label is shown as **gfi-label**, but it doesn't change the
-     score, so you can compare Jev's view with the maintainers'.
+   - A newcomer label such as `good first issue` is shown as **beginner-label**, but it doesn't
+     change the score, so you can compare Jev's view with the maintainers'.
 
    Jev answers the questions; the code decides what to do with the answers. To change the
    weights or thresholds, edit the constants at the top of `rank.py`.

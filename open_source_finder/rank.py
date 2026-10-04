@@ -6,6 +6,8 @@ Change WEIGHTS or the thresholds here without re-running any Jev requests.
 
 from dataclasses import dataclass, field
 
+from .github import BEGINNER_LABEL_PATTERNS, NOT_BEGINNER_LABEL
+
 # How much each dimension counts toward the beginner score (they add up to 1).
 WEIGHTS = {"small_scope": 0.4, "clarity": 0.3, "low_context": 0.3}
 
@@ -61,12 +63,17 @@ def rank(judged, weights=WEIGHTS, min_beginner=MIN_BEGINNER):
             flags.append("claimed")
         if any(c < UNSURE_CONFIDENCE for c in j.confidences.values()):
             flags.append("unsure")
-        if any("good first issue" in label.lower() for label in getattr(issue, "labels", [])):
-            flags.append("gfi-label")
+        if any(is_beginner_label(label) for label in getattr(issue, "labels", [])):
+            flags.append("beginner-label")
         ranked.append(Ranked(issue, j, score, flags))
 
     ranked.sort(key=lambda r: ("claimed" in r.flags, -r.beginner))
     return ranked, skipped
+
+
+def is_beginner_label(name):
+    """True for labels like "good first issue", "first timers only" or "E-easy" ("help wanted" doesn't count)."""
+    return not NOT_BEGINNER_LABEL.search(name) and any(p.search(name) for p in BEGINNER_LABEL_PATTERNS[:-1])
 
 
 def size_label(scope):

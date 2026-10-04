@@ -66,7 +66,7 @@ def test_only_low_confidence_is_flagged_unsure():
 def test_existing_label_is_shown_but_does_not_change_score():
     plain, _ = rank([(issue(1), judgment())])
     labeled, _ = rank([(issue(1, labels=["Good First Issue"]), judgment())])
-    assert "gfi-label" in labeled[0].flags
+    assert "beginner-label" in labeled[0].flags
     assert labeled[0].beginner == plain[0].beginner
 
 
@@ -238,3 +238,12 @@ def test_table_columns_stay_aligned_with_six_digit_issue_numbers(capsys):
     # Each score should end exactly under the end of the "Beginner" heading.
     score_ends = [line.find(f"{r.beginner:.2f}") + 4 for line, r in zip(rows, ranked)]
     assert score_ends == [header.index("Beginner") + len("Beginner")] * len(rows), lines
+
+
+@pytest.mark.parametrize("name, expected", [
+    ("good first issue", True), ("first timers only", True), ("E-easy", True), ("beginner", True),
+    ("help wanted", False), ("easy close", False), ("bug", False),
+])
+def test_beginner_label_flag(name, expected):
+    ranked, _ = rank([(issue(1, labels=[name]), judgment())])
+    assert ("beginner-label" in ranked[0].flags) == expected
