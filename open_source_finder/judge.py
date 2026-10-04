@@ -45,13 +45,17 @@ QUESTIONS = {
         instructions="How much prior knowledge of `repo` would a first-time contributor need to resolve `issue`?",
         criteria=CONTEXT_NEEDED,
     ),
+    # Tested on 33 real issues (Oct 2026): this wording also rejects issues still waiting on a
+    # maintainer decision, which the plain "is it a concrete task?" wording let through 16 of 17 times.
     "actionable": Noul(
-        instructions="Does `issue` ask for a concrete change to code, docs, or tests that could be "
-                     "submitted as a pull request?",
+        instructions="Does `issue` ask for a concrete change to code, docs, or tests that a contributor "
+                     "could start on now and submit as a pull request?",
         criteria=NoulCriteria(
-            true="A specific bug fix, feature, documentation, or test change is requested.",
-            false="It is a usage question, support request, open-ended discussion, proposal still "
-                  "under debate, or a tracking/meta issue.",
+            true="A specific bug fix, feature, documentation, or test change is requested, and nothing "
+                 "suggests maintainers still need to agree on whether or how to do it.",
+            false="It is a usage question, support request, open-ended discussion, a proposal still under "
+                  "debate, or a tracking/meta issue; or its labels or comments say it still needs a "
+                  "maintainer decision or discussion (e.g. 'needs-decision', 'needs discussion').",
         ),
     ),
     "claimed": Noul(

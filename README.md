@@ -155,7 +155,7 @@ open-source-finder scan pandas-dev/pandas --json > issues.json
    | `scope` | Score, 5 levels | One-line fix → cross-cutting redesign |
    | `clarity` | Score, 4 levels | Unclear request → outcome, verification, and location all stated |
    | `context_needed` | Score, 4 levels | Newcomer can do it → needs maintainer decisions |
-   | `actionable` | Noul (yes/no) | A concrete code/docs/test change, not a question or discussion? |
+   | `actionable` | Noul (yes/no) | A concrete code/docs/test change someone can start now, not a question, discussion, or issue still waiting on a maintainer decision? |
    | `claimed` | Noul (yes/no) | Do the comments show someone is on it, or that it was declined? |
 
 3. **Rank** in plain code ([`rank.py`](open_source_finder/rank.py)):
