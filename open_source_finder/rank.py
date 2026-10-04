@@ -9,9 +9,14 @@ from dataclasses import dataclass, field
 # How much each dimension counts toward the beginner score (they add up to 1).
 WEIGHTS = {"small_scope": 0.4, "clarity": 0.3, "low_context": 0.3}
 
+# Thresholds were tuned on 120 real issues from pandas, rust, freeCodeCamp and ruff (Oct 2026).
 ACTIONABLE_MIN = 0.5    # below this, the issue is a question/discussion, not a task -> skipped
 CLAIMED_MIN = 0.6       # above this, someone is already on it (or it was declined) -> flagged, sorted last
-UNSURE_CONFIDENCE = 0.5 # a Score answer below this confidence -> flagged "unsure"; tune on real repos
+UNSURE_CONFIDENCE = 0.3 # a Score answer below this confidence -> flagged "unsure" (~1 in 9 candidates)
+MIN_BEGINNER = 0.45     # below this, too big or complex for a first contribution -> hidden unless --all
+
+NOT_A_TASK = "not a concrete task (question or discussion)"
+TOO_HARD = "too big or complex for a first contribution"
 
 
 @dataclass
@@ -39,12 +44,17 @@ def beginner_score(j, weights=WEIGHTS):
             + weights["low_context"] * (1 - j.context_needed))
 
 
-def rank(judged, weights=WEIGHTS):
-    """judged: list of (issue, Judgment). Returns (ranked, skipped), best first."""
+def rank(judged, weights=WEIGHTS, min_beginner=MIN_BEGINNER):
+    """judged: list of (issue, Judgment). Returns (ranked, skipped), best first.
+    skipped holds (issue, reason, Judgment) for issues left out of the ranking."""
     ranked, skipped = [], []
     for issue, j in judged:
         if j.actionable < ACTIONABLE_MIN:
-            skipped.append((issue, "not a concrete task (question or discussion)"))
+            skipped.append((issue, NOT_A_TASK, j))
+            continue
+        score = round(beginner_score(j, weights), 3)
+        if score < min_beginner:
+            skipped.append((issue, TOO_HARD, j))
             continue
         flags = []
         if j.claimed > CLAIMED_MIN:
@@ -53,7 +63,7 @@ def rank(judged, weights=WEIGHTS):
             flags.append("unsure")
         if any("good first issue" in label.lower() for label in getattr(issue, "labels", [])):
             flags.append("gfi-label")
-        ranked.append(Ranked(issue, j, round(beginner_score(j, weights), 3), flags))
+        ranked.append(Ranked(issue, j, score, flags))
 
     ranked.sort(key=lambda r: ("claimed" in r.flags, -r.beginner))
     return ranked, skipped

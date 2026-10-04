@@ -8,7 +8,7 @@ from typesafe_sdk import SystemOneResponse
 
 from open_source_finder import budget, cli, github
 from open_source_finder.judge import to_judgment
-from open_source_finder.rank import Judgment, beginner_score, rank, size_label
+from open_source_finder.rank import TOO_HARD, Judgment, beginner_score, rank, size_label
 
 
 def issue(number, labels=()):
@@ -29,8 +29,16 @@ def test_small_clear_issue_ranks_above_big_vague_one():
     ranked, _ = rank([
         (issue(1), judgment(scope=0.9, clarity=0.2, context=0.9)),
         (issue(2), judgment(scope=0.1, clarity=0.9, context=0.1)),
-    ])
+    ], min_beginner=0)
     assert [r.issue.number for r in ranked] == [2, 1]
+
+
+def test_big_complex_issues_are_hidden_unless_threshold_lowered():
+    hard = (issue(1), judgment(scope=0.9, clarity=0.3, context=0.9))
+    ranked, skipped = rank([hard])
+    assert ranked == [] and skipped[0][1] == TOO_HARD
+    ranked, _ = rank([hard], min_beginner=0)
+    assert [r.issue.number for r in ranked] == [1]
 
 
 def test_questions_and_discussions_are_skipped():
@@ -48,9 +56,11 @@ def test_claimed_issue_is_flagged_and_sorted_last_even_if_easier():
     assert "claimed" in ranked[1].flags
 
 
-def test_low_confidence_is_flagged_unsure():
-    ranked, _ = rank([(issue(1), judgment(confidence=0.3))])
-    assert "unsure" in ranked[0].flags
+def test_only_low_confidence_is_flagged_unsure():
+    ranked, _ = rank([(issue(1), judgment(confidence=0.2)), (issue(2), judgment(confidence=0.45))])
+    flags = {r.issue.number: r.flags for r in ranked}
+    assert "unsure" in flags[1]
+    assert "unsure" not in flags[2]
 
 
 def test_existing_label_is_shown_but_does_not_change_score():

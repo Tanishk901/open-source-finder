@@ -6,7 +6,7 @@ import sys
 from dataclasses import asdict
 
 from . import budget, github
-from .rank import rank, size_label
+from .rank import MIN_BEGINNER, NOT_A_TASK, TOO_HARD, rank, size_label
 
 TITLE_WIDTH = 46
 
@@ -39,6 +39,8 @@ def main(argv=None):
     scan.add_argument("--max-issues", type=positive_int, default=30,
                       help="how many open issues to fetch and judge (default 30; each costs one Jev request)")
     scan.add_argument("--json", action="store_true", help="print full results as JSON")
+    scan.add_argument("--all", action="store_true",
+                      help="also show issues judged too big or complex for a first contribution")
     scan.add_argument("--judge", choices=JUDGES, default="jev", help="who judges the issues (default jev)")
     scan.add_argument("--mock", action="store_true", help="shorthand for --judge mock (no API key needed)")
     scan.add_argument("--model", default="jev-latest", help="TypeSafe model: jev-latest (default) or jev-preview")
@@ -77,7 +79,7 @@ def main(argv=None):
             raise
     print(file=sys.stderr)
 
-    ranked, skipped = rank(judged)
+    ranked, skipped = rank(judged, min_beginner=0 if args.all else MIN_BEGINNER)
     if args.json:
         print_json(repo, ranked, skipped, args)
     else:
@@ -96,7 +98,12 @@ def print_table(repo, ranked, skipped, args):
             print(f"{i:>2}  #{r.issue.number:<5} {title:<{TITLE_WIDTH}} {r.beginner:>8.2f}  "
                   f"{r.judgment.clarity:>5.2f}  {size_label(r.judgment.scope):<6}  {','.join(r.flags)}")
             print(f"    {r.issue.url}")
-    print(f"\nSkipped {len(skipped)} issue(s) that look like questions or discussions.")
+    not_tasks = sum(reason == NOT_A_TASK for _, reason, _ in skipped)
+    too_hard = sum(reason == TOO_HARD for _, reason, _ in skipped)
+    print(f"\nSkipped {not_tasks} issue(s) that look like questions or discussions.")
+    if too_hard:
+        print(f"Hid {too_hard} issue(s) that look too big or complex for a first contribution "
+              "(show them with --all).")
     print("Flags: claimed = someone is already on it or it was declined; unsure = Jev was not confident; "
           "gfi-label = maintainers labeled it 'good first issue'.")
     if args.judge == "jev":
@@ -112,8 +119,8 @@ def print_json(repo, ranked, skipped, args):
             "labels": r.issue.labels, "beginner": r.beginner, "flags": r.flags,
             "judgment": asdict(r.judgment),
         } for r in ranked],
-        "skipped": [{"number": issue.number, "title": issue.title, "reason": reason}
-                    for issue, reason in skipped],
+        "skipped": [{"number": issue.number, "title": issue.title, "url": issue.url, "reason": reason,
+                     "judgment": asdict(j)} for issue, reason, j in skipped],
     }
     print(json.dumps(out, indent=2))
 
