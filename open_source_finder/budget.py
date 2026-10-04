@@ -14,20 +14,37 @@ PRICE_PER_INPUT_TOKEN = 0.042 / 1_000_000  # Jev: $0.042 per million input token
 MAX_TOKENS_PER_REQUEST = 64_000            # Jev's per-request limit, so the worst-case cost of one call
 
 # ./.env first, then the project folder's .env (for a clone installed with `pip install -e .`).
+# Both are read, so a .env in another folder that lacks the key doesn't hide the project's one.
 ENV_FILES = [Path.cwd() / ".env", Path(__file__).resolve().parent.parent / ".env"]
 SPEND_FILE = Path.home() / ".open-source-finder" / "spend.json"
 PLACEHOLDER = "paste_your_key_here"
 
 
+def parse_env(text):
+    """Parse KEY=value lines. Handles a UTF-8 BOM, quotes, and `# comments` after a value."""
+    values = {}
+    for line in text.lstrip("﻿").splitlines():
+        key, sep, value = line.partition("=")
+        key = key.strip()
+        if not sep or not key or key.startswith("#"):
+            continue
+        value = value.strip()
+        if value[:1] in ("'", '"') and value[0] in value[1:]:
+            value = value[1:value.index(value[0], 1)]
+        else:
+            value = value.split(" #", 1)[0].strip()
+        values[key] = value
+    return values
+
+
 def load_env():
-    """Read KEY=value lines from .env into the environment (existing variables win).
-    Returns True if a real TYPESAFE_API_KEY is set."""
-    env_file = next((f for f in ENV_FILES if f.exists()), None)
-    if env_file:
-        for line in env_file.read_text(encoding="utf-8").splitlines():
-            key, sep, value = line.partition("=")
-            if sep and not key.strip().startswith("#"):
-                os.environ.setdefault(key.strip(), value.strip().strip('"'))
+    """Read .env files into the environment. Variables already set win, then ./.env, then the
+    project folder's .env. Returns True if a real TYPESAFE_API_KEY is set."""
+    for env_file in ENV_FILES:
+        if env_file.exists():
+            for key, value in parse_env(env_file.read_text(encoding="utf-8-sig")).items():
+                if value and value != PLACEHOLDER:
+                    os.environ.setdefault(key, value)
     key = os.environ.get("TYPESAFE_API_KEY", "")
     return bool(key) and key != PLACEHOLDER
 

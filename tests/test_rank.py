@@ -104,3 +104,29 @@ def test_budget_limit_set_in_env_file_is_honored(tmp_path, monkeypatch):
     monkeypatch.setattr(budget, "ENV_FILES", [tmp_path / ".env"])
     budget.load_env()
     assert budget.limit_usd() == 0.50
+
+
+@pytest.mark.parametrize("line, expected", [
+    ("TYPESAFE_API_KEY=abc", "abc"),
+    ("TYPESAFE_API_KEY = abc", "abc"),
+    ('TYPESAFE_API_KEY="abc"', "abc"),
+    ("TYPESAFE_API_KEY='abc'   # my key", "abc"),
+    ("TYPESAFE_API_KEY=abc  # my key", "abc"),
+    ("\ufeffTYPESAFE_API_KEY=abc", "abc"),  # saved as "UTF-8 with BOM" by some Windows editors
+])
+def test_parse_env_handles_common_formats(line, expected):
+    assert budget.parse_env(line)["TYPESAFE_API_KEY"] == expected
+
+
+def test_parse_env_ignores_comments_and_blank_lines():
+    assert budget.parse_env("# comment\n\nNO_EQUALS\nA=1") == {"A": "1"}
+
+
+def test_load_env_reads_project_env_when_local_one_lacks_the_key(tmp_path, monkeypatch):
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    local, project = tmp_path / "local.env", tmp_path / "project.env"
+    local.write_text("TYPESAFE_API_KEY=paste_your_key_here\nOTHER=1\n", encoding="utf-8")
+    project.write_text("TYPESAFE_API_KEY=real-key\n", encoding="utf-8-sig")
+    monkeypatch.setattr(budget, "ENV_FILES", [local, project])
+    assert budget.load_env() is True
+    assert budget.os.environ["TYPESAFE_API_KEY"] == "real-key"
