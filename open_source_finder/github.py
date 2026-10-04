@@ -5,6 +5,7 @@ Set GITHUB_TOKEN to raise the rate limit from 60 to 5,000 requests an hour.
 
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -64,6 +65,21 @@ def _get(path):
         raise GitHubError(f"GitHub returned {error.code} for {path}") from error
     except urllib.error.URLError as error:
         raise GitHubError(f"Could not reach GitHub: {error.reason}") from error
+
+
+REPO_NAME = re.compile(r"^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$")
+
+
+def parse_repo(text):
+    """Accept `owner/name`, a GitHub URL (including /issues/... links), or a .git clone URL."""
+    path = text.strip()
+    path = re.sub(r"^(https?://)?(www\.)?github\.com/", "", path)
+    path = re.sub(r"^git@github\.com:", "", path)
+    path = "/".join(path.strip("/").split("/")[:2])
+    path = re.sub(r"\.git$", "", path)
+    if not REPO_NAME.match(path):
+        raise GitHubError(f"'{text}' is not a GitHub repo. Use owner/name, e.g. rust-lang/rustlings.")
+    return path
 
 
 def fetch_repo(full_name):

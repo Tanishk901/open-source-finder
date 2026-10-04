@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 from typesafe_sdk import SystemOneResponse
 
-from open_source_finder import budget
+from open_source_finder import budget, cli, github
 from open_source_finder.judge import to_judgment
 from open_source_finder.rank import Judgment, beginner_score, rank, size_label
 
@@ -130,3 +130,28 @@ def test_load_env_reads_project_env_when_local_one_lacks_the_key(tmp_path, monke
     monkeypatch.setattr(budget, "ENV_FILES", [local, project])
     assert budget.load_env() is True
     assert budget.os.environ["TYPESAFE_API_KEY"] == "real-key"
+
+
+@pytest.mark.parametrize("text", [
+    "rust-lang/rustlings",
+    "rust-lang/rustlings/",
+    " rust-lang/rustlings ",
+    "https://github.com/rust-lang/rustlings",
+    "https://github.com/rust-lang/rustlings/issues/2453",
+    "github.com/rust-lang/rustlings.git",
+    "git@github.com:rust-lang/rustlings.git",
+])
+def test_parse_repo_accepts_names_and_urls(text):
+    assert github.parse_repo(text) == "rust-lang/rustlings"
+
+
+@pytest.mark.parametrize("text", ["owner", "", "https://gitlab.com/a/b", "a b/c"])
+def test_parse_repo_rejects_non_repos(text):
+    with pytest.raises(github.GitHubError):
+        github.parse_repo(text)
+
+
+@pytest.mark.parametrize("value", ["0", "-1"])
+def test_top_must_be_positive(value):
+    with pytest.raises(SystemExit):
+        cli.main(["scan", "a/b", "--top", value, "--mock"])

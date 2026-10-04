@@ -23,13 +23,20 @@ def make_judge(name, model):
     return JevJudge(model=model)
 
 
+def positive_int(text):
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError("must be 1 or more")
+    return value
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="open-source-finder", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     scan = sub.add_parser("scan", help="rank a repo's open issues for beginners")
-    scan.add_argument("repo", help="GitHub repo as owner/name, e.g. pallets/flask")
-    scan.add_argument("--top", type=int, default=10, help="how many issues to show (default 10)")
-    scan.add_argument("--max-issues", type=int, default=30,
+    scan.add_argument("repo", help="GitHub repo as owner/name or URL, e.g. rust-lang/rustlings")
+    scan.add_argument("--top", type=positive_int, default=10, help="how many issues to show (default 10)")
+    scan.add_argument("--max-issues", type=positive_int, default=30,
                       help="how many open issues to fetch and judge (default 30; each costs one Jev request)")
     scan.add_argument("--json", action="store_true", help="print full results as JSON")
     scan.add_argument("--judge", choices=JUDGES, default="jev", help="who judges the issues (default jev)")
@@ -50,7 +57,7 @@ def main(argv=None):
     judge = make_judge(args.judge, args.model)
 
     try:
-        repo = github.fetch_repo(args.repo)
+        repo = github.fetch_repo(github.parse_repo(args.repo))
         issues = github.fetch_issues(repo.full_name, args.max_issues)
     except github.GitHubError as error:
         sys.exit(str(error))
