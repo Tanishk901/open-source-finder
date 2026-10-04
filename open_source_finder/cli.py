@@ -92,10 +92,12 @@ def print_table(repo, ranked, skipped, args):
     if not ranked:
         print("No suitable open issues found.")
     else:
-        print(f" #  {'Issue':<{TITLE_WIDTH + 7}} Beginner  Clear  Size    Flags")
+        # Big repos have 6-digit issue numbers; size the column to fit so the table stays aligned.
+        num_width = max(5, *(len(str(r.issue.number)) for r in ranked))
+        print(f" #  {'Issue':<{TITLE_WIDTH + num_width + 2}} Beginner  Clear  Size    Flags")
         for i, r in enumerate(ranked, 1):
             title = r.issue.title if len(r.issue.title) <= TITLE_WIDTH else r.issue.title[:TITLE_WIDTH - 3] + "..."
-            print(f"{i:>2}  #{r.issue.number:<5} {title:<{TITLE_WIDTH}} {r.beginner:>8.2f}  "
+            print(f"{i:>2}  #{r.issue.number:<{num_width}} {title:<{TITLE_WIDTH}} {r.beginner:>8.2f}  "
                   f"{r.judgment.clarity:>5.2f}  {size_label(r.judgment.scope):<6}  {','.join(r.flags)}")
             print(f"    {r.issue.url}")
     not_tasks = sum(reason == NOT_A_TASK for _, reason, _ in skipped)

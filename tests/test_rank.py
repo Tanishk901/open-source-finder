@@ -225,3 +225,16 @@ def test_beginner_labels_skip_look_alikes(monkeypatch):
     names = ["easy close", "I-lang-easy-decision", "D-newcomer-roadblock", "E-easy", "good first issue"]
     monkeypatch.setattr(github, "_get", lambda path: [{"name": n} for n in names] if "page=1" in path else [])
     assert github.beginner_labels("a/b") == ["good first issue", "E-easy"]
+
+
+def test_table_columns_stay_aligned_with_six_digit_issue_numbers(capsys):
+    def row(n):
+        return SimpleNamespace(number=n, title=f"Issue {n}", labels=[], url=f"https://x/{n}")
+    ranked, _ = rank([(row(5), judgment()), (row(152762), judgment(scope=0.3))])
+    args = SimpleNamespace(judge="mock", model="m")
+    cli.print_table(SimpleNamespace(full_name="a/b"), ranked, [], args)
+    lines = [l for l in capsys.readouterr().out.splitlines() if l.strip().startswith(("#", "1 ", "2 "))]
+    header, rows = lines[0], lines[1:]
+    # Each score should end exactly under the end of the "Beginner" heading.
+    score_ends = [line.find(f"{r.beginner:.2f}") + 4 for line, r in zip(rows, ranked)]
+    assert score_ends == [header.index("Beginner") + len("Beginner")] * len(rows), lines
