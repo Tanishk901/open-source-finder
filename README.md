@@ -217,6 +217,9 @@ run stops before any request that could cross `$5.00` (set `JEV_BUDGET_USD` to c
 | `owner/repo` gives "Not found" | `owner/repo` is a placeholder. | Use a real repo, e.g. `rust-lang/rustlings`. |
 | `GitHub rejected GITHUB_TOKEN` | The token in `.env` is wrong, expired, or revoked. | Create a new token, or delete the `GITHUB_TOKEN` line to run without one. |
 | `... is not a GitHub repo` | The repo argument isn't `owner/name` or a GitHub link. | Copy the link from the repo's page on github.com. |
+| `... is archived (read-only)` | The repo no longer accepts changes. | Pick an active repo. |
+| `... doesn't use GitHub issues` | The repo turned GitHub issues off (e.g. `torvalds/linux` uses mailing lists). | Check the repo's README for how it takes contributions. |
+| `Warning: ... spend.json was unreadable` | The spending record was damaged (e.g. the PC lost power mid-write). | Nothing to do: it was moved to `spend.json.bad` and a new total started. |
 | `Hid N issue(s) that look too big or complex` | Not an error: those issues scored under 0.45. | Add `--all` to see them anyway. |
 
 ## Roadmap
