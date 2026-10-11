@@ -143,7 +143,6 @@ open-source-finder scan pandas-dev/pandas --json > issues.json
 | `--mock` | off | Shorthand for `--judge mock`: keyword rules, no API key needed |
 | `--model` | `jev-latest` | TypeSafe model: `jev-latest` or `jev-preview` |
 
-
 ## How it works
 
 ![How it works: fetch issues, ask Jev five questions per issue, rank in code, show your list](docs/how-it-works.svg)
