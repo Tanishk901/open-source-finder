@@ -103,6 +103,12 @@ def parse_repo(text):
 
 def fetch_repo(full_name):
     data = _get(f"/repos/{full_name}")
+    if data.get("archived"):
+        raise GitHubError(f"{data['full_name']} is archived (read-only), so it can't accept contributions. "
+                          "Try an active repo.")
+    if not data.get("has_issues", True):
+        raise GitHubError(f"{data['full_name']} doesn't use GitHub issues (they're turned off), "
+                          "so there's nothing to rank. Check its README for how it takes contributions.")
     return Repo(full_name=data["full_name"], description=data.get("description") or "",
                 language=data.get("language") or "unknown")
 

@@ -291,3 +291,13 @@ def test_judge_all_ctrl_c_keeps_finished_results():
             return judgment()
     judged = cli.judge_all(Interrupted(), None, [SimpleNamespace(number=n) for n in range(6)])
     assert 5 not in [i.number for i, _ in judged]
+
+
+@pytest.mark.parametrize("repo_json, expected", [
+    ({"full_name": "a/b", "archived": True, "has_issues": True}, "archived"),
+    ({"full_name": "a/b", "archived": False, "has_issues": False}, "doesn't use GitHub issues"),
+])
+def test_fetch_repo_rejects_repos_that_cant_take_contributions(monkeypatch, repo_json, expected):
+    monkeypatch.setattr(github, "_get", lambda path: repo_json)
+    with pytest.raises(github.GitHubError, match=expected):
+        github.fetch_repo("a/b")
