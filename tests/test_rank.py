@@ -312,3 +312,15 @@ def test_corrupted_spend_file_is_set_aside_not_fatal(tmp_path, monkeypatch, caps
     assert json.loads(spend.read_text(encoding="utf-8"))["input_tokens"] == 1000
     assert (tmp_path / "spend.json.bad").exists()
     assert "unreadable" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("title, is_task", [
+    ("Help wanted: add a dark mode toggle", True),
+    ("Fix typo in README", True),
+    ("How do I configure logging?", False),
+    ("Need help installing on Windows", False),
+])
+def test_mock_judge_tells_tasks_from_questions(title, is_task):
+    from open_source_finder.mock import MockJudge
+    j = MockJudge().judge(None, SimpleNamespace(title=title, body="", recent_comments=[]))
+    assert (j.actionable >= 0.5) == is_task

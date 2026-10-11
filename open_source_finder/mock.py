@@ -8,7 +8,9 @@ from .rank import Judgment
 
 SMALL_HINTS = ("typo", "docs", "documentation", "readme", "spelling", "wording", "comment", "error message")
 LARGE_HINTS = ("refactor", "redesign", "rewrite", "architecture", "migrate", "rfc", "breaking", "performance")
-QUESTION_HINTS = ("how do i", "how to", "question", "is it possible", "help", "discussion", "tracking")
+# Not plain "help": "Help wanted: ..." titles are tasks maintainers want done, not questions.
+QUESTION_HINTS = ("how do i", "how to", "question", "is it possible", "need help", "help me", "help with",
+                  "discussion", "tracking")
 CLAIM_HINTS = ("i'm working on", "i am working on", "i'll take", "i will take", "can i work",
                "assign me", "opened a pr", "opened pr", "wontfix", "won't fix", "not planned")
 
