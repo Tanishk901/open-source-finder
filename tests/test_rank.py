@@ -301,3 +301,14 @@ def test_fetch_repo_rejects_repos_that_cant_take_contributions(monkeypatch, repo
     monkeypatch.setattr(github, "_get", lambda path: repo_json)
     with pytest.raises(github.GitHubError, match=expected):
         github.fetch_repo("a/b")
+
+
+def test_corrupted_spend_file_is_set_aside_not_fatal(tmp_path, monkeypatch, capsys):
+    spend = tmp_path / "spend.json"
+    spend.write_text('{"input_tokens": 12', encoding="utf-8")  # cut off mid-write
+    monkeypatch.setattr(budget, "SPEND_FILE", spend)
+    with budget.reserve():
+        budget.record(SimpleNamespace(input_tokens=1000))
+    assert json.loads(spend.read_text(encoding="utf-8"))["input_tokens"] == 1000
+    assert (tmp_path / "spend.json.bad").exists()
+    assert "unreadable" in capsys.readouterr().err

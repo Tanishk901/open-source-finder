@@ -7,6 +7,7 @@ could push the total past the limit, even in the worst case.
 
 import json
 import os
+import sys
 import threading
 from contextlib import contextmanager
 from pathlib import Path
@@ -65,8 +66,24 @@ class BudgetExceeded(Exception):
 
 def _load():
     if SPEND_FILE.exists():
-        return json.loads(SPEND_FILE.read_text(encoding="utf-8"))
+        try:
+            return json.loads(SPEND_FILE.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            # Unreadable (e.g. an older version was cut off mid-write). Keep it for reference and start
+            # a fresh total, rather than crashing every future run.
+            backup = SPEND_FILE.with_suffix(".json.bad")
+            SPEND_FILE.replace(backup)
+            print(f"Warning: {SPEND_FILE} was unreadable; moved it to {backup.name} and started a new total.",
+                  file=sys.stderr)
     return {"input_tokens": 0, "requests": 0, "usd": 0.0}
+
+
+def _save(data):
+    # Write a temporary file, then swap it in: the swap is atomic, so a crash can't leave a half-written file.
+    SPEND_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = SPEND_FILE.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    tmp.replace(SPEND_FILE)
 
 
 WORST_CASE_USD = MAX_TOKENS_PER_REQUEST * PRICE_PER_INPUT_TOKEN
@@ -98,8 +115,7 @@ def record(usage):
         data["input_tokens"] += usage.input_tokens or 0
         data["requests"] += 1
         data["usd"] = data["input_tokens"] * PRICE_PER_INPUT_TOKEN
-        SPEND_FILE.parent.mkdir(parents=True, exist_ok=True)
-        SPEND_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        _save(data)
 
 
 def summary():
