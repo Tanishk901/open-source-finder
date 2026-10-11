@@ -324,3 +324,12 @@ def test_mock_judge_tells_tasks_from_questions(title, is_task):
     from open_source_finder.mock import MockJudge
     j = MockJudge().judge(None, SimpleNamespace(title=title, body="", recent_comments=[]))
     assert (j.actionable >= 0.5) == is_task
+
+
+@pytest.mark.parametrize("labels, expected", [
+    (["good first issue", "help wanted"], "Looked first at issues labeled: good first issue, help wanted"),
+    ([], "No newcomer labels in this repo"),
+])
+def test_table_says_which_labels_chose_the_issues(capsys, labels, expected):
+    cli.print_table(SimpleNamespace(full_name="a/b"), [], [], SimpleNamespace(judge="mock", model="m"), labels)
+    assert expected in capsys.readouterr().out

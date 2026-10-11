@@ -132,11 +132,14 @@ def beginner_labels(full_name):
     return [name for _, name in sorted(ranked)][:MAX_BEGINNER_LABELS]
 
 
-def fetch_issues(full_name, max_issues):
+def fetch_issues(full_name, max_issues, labels=None):
     """Open, unassigned issues (pull requests excluded), with their latest comments.
 
-    Issues with newcomer-friendly labels come first, then the newest issues fill the rest.
-    Labels only choose which issues get judged; they don't affect the score."""
+    Issues with newcomer-friendly labels (`labels`, or beginner_labels() if not given) come first,
+    then the newest issues fill the rest. Labels only choose which issues get judged; they don't
+    affect the score."""
+    if labels is None:
+        labels = beginner_labels(full_name)
     issues, seen = [], set()
 
     def take(path):
@@ -154,7 +157,7 @@ def fetch_issues(full_name, max_issues):
                 return
             page += 1
 
-    for label in beginner_labels(full_name):
+    for label in labels:
         take(f"/repos/{full_name}/issues?state=open&labels={urllib.parse.quote(label)}")
     take(f"/repos/{full_name}/issues?state=open")
 

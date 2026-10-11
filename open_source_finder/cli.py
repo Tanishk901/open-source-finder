@@ -63,7 +63,8 @@ def main(argv=None):
     try:
         print("Fetching issues from GitHub...", file=sys.stderr, flush=True)
         repo = github.fetch_repo(github.parse_repo(args.repo))
-        issues = github.fetch_issues(repo.full_name, args.max_issues)
+        labels = github.beginner_labels(repo.full_name)
+        issues = github.fetch_issues(repo.full_name, args.max_issues, labels)
     except github.GitHubError as error:
         sys.exit(str(error))
     except KeyboardInterrupt:
@@ -73,9 +74,9 @@ def main(argv=None):
 
     ranked, skipped = rank(judged, min_beginner=0 if args.all else MIN_BEGINNER)
     if args.json:
-        print_json(repo, ranked, skipped, args)
+        print_json(repo, ranked, skipped, args, labels)
     else:
-        print_table(repo, ranked[:args.top], skipped, args)
+        print_table(repo, ranked[:args.top], skipped, args, labels)
 
 
 def judge_all(judge, repo, issues):
@@ -106,9 +107,13 @@ def judge_all(judge, repo, issues):
     return sorted(judged, key=lambda pair: order[pair[0].number])
 
 
-def print_table(repo, ranked, skipped, args):
+def print_table(repo, ranked, skipped, args, labels=()):
     mode = "mock rules (not Jev)" if args.judge == "mock" else f"Jev ({args.model})"
-    print(f"\n{repo.full_name} - best issues for a first contribution - judged by {mode}\n")
+    print(f"\n{repo.full_name} - best issues for a first contribution - judged by {mode}")
+    if labels:
+        print(f"Looked first at issues labeled: {', '.join(labels)}\n")
+    else:
+        print("No newcomer labels in this repo, so the newest issues were judged.\n")
     if not ranked:
         print("No suitable open issues found.")
     else:
@@ -132,9 +137,10 @@ def print_table(repo, ranked, skipped, args):
         print(budget.summary())
 
 
-def print_json(repo, ranked, skipped, args):
+def print_json(repo, ranked, skipped, args, labels=()):
     out = {
         "repo": repo.full_name,
+        "beginner_labels": list(labels),
         "judge": args.judge if args.judge != "jev" else args.model,
         "ranked": [{
             "number": r.issue.number, "title": r.issue.title, "url": r.issue.url,
