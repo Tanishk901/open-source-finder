@@ -142,6 +142,7 @@ open-source-finder scan pandas-dev/pandas --json > issues.json
 | `--judge` | `jev` | Who judges the issues: `jev` or `mock` |
 | `--mock` | off | Shorthand for `--judge mock`: keyword rules, no API key needed |
 | `--model` | `jev-latest` | TypeSafe model: `jev-latest` or `jev-preview` |
+| `--no-cache` | off | Judge every issue again, even ones unchanged since the last scan |
 
 ## How it works
 
@@ -201,6 +202,12 @@ input tokens, a 30-issue scan costs well under a cent. Check
 
 A spending cap is built in. Total spend is tracked in `~/.open-source-finder/spend.json`, and the
 run stops before any request that could cross `$5.00` (set `JEV_BUDGET_USD` to change this).
+
+Scanning the same repo again is mostly free: judgments are saved in
+`~/.open-source-finder/judgments.json` and reused for any issue that hasn't changed on GitHub since
+(no edits, label changes or new comments), as long as the model and the questions in
+[`judge.py`](open_source_finder/judge.py) are the same. Saved judgments expire after 30 days. Use
+`--no-cache` to judge everything again.
 
 ## Troubleshooting
 

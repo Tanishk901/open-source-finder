@@ -17,12 +17,16 @@ WORKERS = 8  # Jev requests in flight at once
 JUDGES = ["jev", "mock"]
 
 
-def make_judge(name, model):
+def make_judge(name, model, use_cache=True):
     if name == "mock":
         from .mock import MockJudge
         return MockJudge()
-    from .judge import JevJudge
-    return JevJudge(model=model)
+    from .judge import QUESTIONS, JevJudge
+    judge = JevJudge(model=model)
+    if not use_cache:
+        return judge
+    from .cache import CachedJudge
+    return CachedJudge(judge, model, QUESTIONS)
 
 
 def positive_int(text):
@@ -46,6 +50,8 @@ def main(argv=None):
     scan.add_argument("--judge", choices=JUDGES, default="jev", help="who judges the issues (default jev)")
     scan.add_argument("--mock", action="store_true", help="shorthand for --judge mock (no API key needed)")
     scan.add_argument("--model", default="jev-latest", help="TypeSafe model: jev-latest (default) or jev-preview")
+    scan.add_argument("--no-cache", action="store_true",
+                      help="judge every issue again, even ones unchanged since the last scan")
     args = parser.parse_args(argv)
     if args.mock:
         args.judge = "mock"
@@ -58,7 +64,7 @@ def main(argv=None):
     has_key = budget.load_env()
     if args.judge == "jev" and not has_key:
         sys.exit("No TYPESAFE_API_KEY found. Put it in .env (see .env.example), or try --mock.")
-    judge = make_judge(args.judge, args.model)
+    judge = make_judge(args.judge, args.model, use_cache=not args.no_cache)
 
     try:
         print("Fetching issues from GitHub...", file=sys.stderr, flush=True)
@@ -71,6 +77,9 @@ def main(argv=None):
         sys.exit("\nCancelled.")
 
     judged = judge_all(judge, repo, issues)
+    if getattr(judge, "hits", 0):
+        print(f"Reused {judge.hits} saved judgment(s) for issues unchanged since the last scan (free; "
+              "--no-cache to judge them again).", file=sys.stderr)
 
     ranked, skipped = rank(judged, min_beginner=0 if args.all else MIN_BEGINNER)
     if args.json:

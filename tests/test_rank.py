@@ -360,3 +360,56 @@ def test_recent_comments_reach_back_a_page_when_the_last_one_is_nearly_empty(mon
     comments = github._recent_comments("a/b", SimpleNamespace(number=1, comment_count=101))
     assert comments == ["1-96", "1-97", "1-98", "1-99", "2-0"]
 
+
+class CountingJudge:
+    def __init__(self):
+        self.calls = 0
+
+    def judge(self, repo, issue):
+        self.calls += 1
+        return judgment(scope=0.1 * self.calls)
+
+
+@pytest.fixture
+def cache_file(tmp_path, monkeypatch):
+    from open_source_finder import cache
+    monkeypatch.setattr(cache, "CACHE_FILE", tmp_path / "judgments.json")
+    return cache
+
+
+def test_cache_reuses_judgments_of_unchanged_issues_across_runs(cache_file):
+    repo, inner = SimpleNamespace(full_name="a/b"), CountingJudge()
+    item = SimpleNamespace(number=1, updated_at="2026-10-01T00:00:00Z")
+    first = cache_file.CachedJudge(inner, "jev-latest", "questions").judge(repo, item)
+    again = cache_file.CachedJudge(inner, "jev-latest", "questions")  # a later run reads the file
+    assert again.judge(repo, item) == first and inner.calls == 1 and again.hits == 1
+
+
+@pytest.mark.parametrize("change", ["updated_at", "model", "questions"])
+def test_cache_judges_again_when_issue_model_or_questions_change(cache_file, change):
+    repo, inner = SimpleNamespace(full_name="a/b"), CountingJudge()
+    setup = {"updated_at": "2026-10-01T00:00:00Z", "model": "jev-latest", "questions": "q1"}
+    cache_file.CachedJudge(inner, setup["model"], setup["questions"]).judge(
+        repo, SimpleNamespace(number=1, updated_at=setup["updated_at"]))
+    setup[change] = "changed"
+    judge = cache_file.CachedJudge(inner, setup["model"], setup["questions"])
+    judge.judge(repo, SimpleNamespace(number=1, updated_at=setup["updated_at"]))
+    assert inner.calls == 2 and judge.hits == 0
+
+
+def test_cache_drops_old_entries_and_survives_a_damaged_file(cache_file, monkeypatch):
+    repo, inner = SimpleNamespace(full_name="a/b"), CountingJudge()
+    item = SimpleNamespace(number=1, updated_at="2026-10-01T00:00:00Z")
+    cache_file.CachedJudge(inner, "m", "q").judge(repo, item)
+    real_time = cache_file.time.time
+    monkeypatch.setattr(cache_file.time, "time", lambda: real_time() + 31 * 86400)
+    cache_file.CachedJudge(inner, "m", "q").judge(repo, item)
+    assert inner.calls == 2
+    cache_file.CACHE_FILE.write_text("{not json", encoding="utf-8")
+    assert cache_file.CachedJudge(inner, "m", "q").judge(repo, item) and inner.calls == 3
+
+
+def test_fetch_issues_records_when_each_issue_last_changed(monkeypatch):
+    raw = dict(fake_issue(1), updated_at="2026-10-02T03:04:05Z")
+    monkeypatch.setattr(github, "_get", lambda path: [raw] if "page=1" in path else [])
+    assert github.fetch_issues("a/b", 5, labels=[])[0].updated_at == "2026-10-02T03:04:05Z"

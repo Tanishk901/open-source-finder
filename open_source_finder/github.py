@@ -42,6 +42,7 @@ class Issue:
     url: str
     age_days: int
     comment_count: int
+    updated_at: str = ""  # changes on every edit, label change and comment
     recent_comments: list[str] = field(default_factory=list)
 
 
@@ -189,6 +190,7 @@ def _to_issue(raw):
         url=raw["html_url"],
         age_days=(datetime.now(timezone.utc) - created).days,
         comment_count=raw.get("comments", 0),
+        updated_at=raw.get("updated_at") or "",
     )
 
 
