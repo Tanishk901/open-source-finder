@@ -91,12 +91,12 @@ REPO_NAME = re.compile(r"^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$")
 
 def parse_repo(text):
     """Accept `owner/name`, a GitHub URL (including /issues/... links), or a .git clone URL."""
-    path = text.strip()
-    path = re.sub(r"^(https?://)?(www\.)?github\.com/", "", path)
-    path = re.sub(r"^git@github\.com:", "", path)
+    path = re.split(r"[?#]", text.strip(), maxsplit=1)[0]  # drop ?tab=readme, #readme, ...
+    path = re.sub(r"^(https?://)?(www\.)?github\.com/", "", path, flags=re.IGNORECASE)
+    path = re.sub(r"^git@github\.com:", "", path, flags=re.IGNORECASE)
     path = "/".join(path.strip("/").split("/")[:2])
     path = re.sub(r"\.git$", "", path)
-    if not REPO_NAME.match(path):
+    if not REPO_NAME.match(path) or path.split("/")[1] in (".", ".."):
         raise GitHubError(f"'{text}' is not a GitHub repo. Use owner/name, e.g. rust-lang/rustlings.")
     return path
 
@@ -171,7 +171,11 @@ def fetch_issues(full_name, max_issues, labels=None):
 def _recent_comments(full_name, issue):
     # Comments come oldest first; jump to the last page so we get the newest ones.
     last_page = max(1, -(-issue.comment_count // 100))
-    comments = _get(f"/repos/{full_name}/issues/{issue.number}/comments?per_page=100&page={last_page}")
+    path = f"/repos/{full_name}/issues/{issue.number}/comments?per_page=100&page="
+    comments = _get(f"{path}{last_page}")
+    if len(comments) < RECENT_COMMENTS and last_page > 1:
+        # The last page is nearly empty (e.g. comment 101 of 101); the rest of the newest are on the page before.
+        comments = _get(f"{path}{last_page - 1}") + comments
     return [_clip(c.get("body") or "", COMMENT_CHARS) for c in comments[-RECENT_COMMENTS:]]
 
 

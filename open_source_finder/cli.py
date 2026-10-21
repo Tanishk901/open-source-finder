@@ -82,16 +82,24 @@ def main(argv=None):
 def judge_all(judge, repo, issues):
     """Judge issues WORKERS at a time. Stops early, keeping what's done, on the spending cap or Ctrl+C."""
     judged = []
+    budget_error = None
     pool = ThreadPoolExecutor(WORKERS)
     futures = {pool.submit(judge.judge, repo, issue): issue for issue in issues}
     try:
-        for done, future in enumerate(as_completed(futures), 1):
+        done = 0
+        for future in as_completed(futures):
+            if future.cancelled():
+                continue
+            done += 1
             print(f"\rJudging issues: {done}/{len(issues)}", end="", file=sys.stderr, flush=True)
             try:
                 judged.append((futures[future], future.result()))
             except budget.BudgetExceeded as error:
-                print(f"\n{error} Showing the {len(judged)} issues judged so far.", file=sys.stderr)
-                break
+                # Don't start any more requests, but keep the ones already running: they're paid for.
+                if budget_error is None:
+                    budget_error = error
+                    for pending in futures:
+                        pending.cancel()
             except Exception as error:
                 # SDK errors (bad key, unknown model, rate limit) carry a clear message; show it, not a traceback.
                 if type(error).__module__.startswith("typesafe_sdk"):
@@ -102,6 +110,8 @@ def judge_all(judge, repo, issues):
         print(f"\nStopped. Showing the {len(judged)} issues judged so far.", file=sys.stderr)
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
+    if budget_error:
+        print(f"\n{budget_error} Showing the {len(judged)} issues judged so far.", end="", file=sys.stderr)
     print(file=sys.stderr)
     order = {issue.number: i for i, issue in enumerate(issues)}
     return sorted(judged, key=lambda pair: order[pair[0].number])

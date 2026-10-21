@@ -157,6 +157,7 @@ def test_budget_limit_set_in_env_file_is_honored(tmp_path, monkeypatch):
     ("TYPESAFE_API_KEY='abc'   # my key", "abc"),
     ("TYPESAFE_API_KEY=abc  # my key", "abc"),
     ("\ufeffTYPESAFE_API_KEY=abc", "abc"),  # saved as "UTF-8 with BOM" by some Windows editors
+    ("export TYPESAFE_API_KEY=abc", "abc"),  # shell-style .env
 ])
 def test_parse_env_handles_common_formats(line, expected):
     assert budget.parse_env(line)["TYPESAFE_API_KEY"] == expected
@@ -184,12 +185,15 @@ def test_load_env_reads_project_env_when_local_one_lacks_the_key(tmp_path, monke
     "https://github.com/rust-lang/rustlings/issues/2453",
     "github.com/rust-lang/rustlings.git",
     "git@github.com:rust-lang/rustlings.git",
+    "https://github.com/rust-lang/rustlings?tab=readme-ov-file",
+    "https://github.com/rust-lang/rustlings#readme",
+    "HTTPS://GitHub.com/rust-lang/rustlings",
 ])
 def test_parse_repo_accepts_names_and_urls(text):
     assert github.parse_repo(text) == "rust-lang/rustlings"
 
 
-@pytest.mark.parametrize("text", ["owner", "", "https://gitlab.com/a/b", "a b/c"])
+@pytest.mark.parametrize("text", ["owner", "", "https://gitlab.com/a/b", "a b/c", "owner/..", "owner/."])
 def test_parse_repo_rejects_non_repos(text):
     with pytest.raises(github.GitHubError):
         github.parse_repo(text)
@@ -333,3 +337,26 @@ def test_mock_judge_tells_tasks_from_questions(title, is_task):
 def test_table_says_which_labels_chose_the_issues(capsys, labels, expected):
     cli.print_table(SimpleNamespace(full_name="a/b"), [], [], SimpleNamespace(judge="mock", model="m"), labels)
     assert expected in capsys.readouterr().out
+
+
+def test_judge_all_keeps_paid_results_still_running_when_budget_runs_out():
+    import time
+
+    class SlowJudge:
+        def judge(self, repo, issue):
+            if issue.number == 0:
+                raise budget.BudgetExceeded("limit")
+            time.sleep(0.2)  # already reserved and running when issue 0 hits the cap
+            return judgment()
+    judged = cli.judge_all(SlowJudge(), None, [SimpleNamespace(number=n) for n in range(5)])
+    assert [i.number for i, _ in judged] == [1, 2, 3, 4]
+
+
+def test_recent_comments_reach_back_a_page_when_the_last_one_is_nearly_empty(monkeypatch):
+    def fake_get(path):
+        page = int(path.rsplit("page=", 1)[1])
+        return [{"body": f"{page}-{n}"} for n in range(100 if page == 1 else 1)]
+    monkeypatch.setattr(github, "_get", fake_get)
+    comments = github._recent_comments("a/b", SimpleNamespace(number=1, comment_count=101))
+    assert comments == ["1-96", "1-97", "1-98", "1-99", "2-0"]
+

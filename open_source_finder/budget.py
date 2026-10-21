@@ -29,6 +29,8 @@ def parse_env(text):
     for line in text.lstrip("\ufeff").splitlines():
         key, sep, value = line.partition("=")
         key = key.strip()
+        if key.startswith("export "):  # shell-style .env files
+            key = key[len("export "):].strip()
         if not sep or not key or key.startswith("#"):
             continue
         value = value.strip()
