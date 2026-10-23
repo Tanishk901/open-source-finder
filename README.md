@@ -22,7 +22,8 @@ narrow questions with typed, calibrated answers instead of generated text.
 
 > **Note:** This project's code is open source (MIT). Jev itself is a hosted model, so judging
 > real issues needs a TypeSafe API key and costs a small amount per issue (see [Cost](#cost)).
-> You can try everything else for free with `--mock`.
+> You can also judge issues for free with a [local model](#run-free-with-a-local-model-ollama),
+> or try the tool with `--mock`.
 > This is a community project, not affiliated with TypeSafe AI.
 
 ## Contents
@@ -30,6 +31,7 @@ narrow questions with typed, calibrated answers instead of generated text.
 - [Install](#install)
 - [Add your API key](#add-your-api-key)
 - [Use](#use)
+- [Run free with a local model (Ollama)](#run-free-with-a-local-model-ollama)
 - [How it works](#how-it-works)
 - [What Jev catches](#what-jev-catches)
 - [Cost](#cost)
@@ -139,10 +141,44 @@ open-source-finder scan pandas-dev/pandas --json > issues.json
 | `--max-issues N` | 30 | How many open issues to fetch and judge (one Jev request each) |
 | `--all` | off | Also show issues judged too big or complex for a first contribution |
 | `--json` | off | Print full results as JSON, including skipped issues and their scores |
-| `--judge` | `jev` | Who judges the issues: `jev` or `mock` |
+| `--judge` | `jev` | Who judges the issues: `jev`, `ollama` (a local model), or `mock` |
 | `--mock` | off | Shorthand for `--judge mock`: keyword rules, no API key needed |
-| `--model` | `jev-latest` | TypeSafe model: `jev-latest` or `jev-preview` |
+| `--model` | depends on judge | For `jev`: `jev-latest` (default) or `jev-preview`. For `ollama`: any model you've pulled (default `qwen2.5:7b`) |
 | `--no-cache` | off | Judge every issue again, even ones unchanged since the last scan |
+
+## Run free with a local model (Ollama)
+
+You can judge issues with a model running on your own computer instead of Jev. It's free,
+needs no API key, and works offline once the issues are fetched.
+
+1. Install [Ollama](https://ollama.com/download) and start it.
+2. Pull a model. Models that are good at JSON work best; `qwen2.5:7b` (about 4.7 GB) is the
+   default:
+
+   ```bash
+   ollama pull qwen2.5:7b
+   ```
+
+3. Scan with `--judge ollama`:
+
+   ```bash
+   open-source-finder scan rust-lang/rustlings --judge ollama
+   open-source-finder scan rust-lang/rustlings --judge ollama --model llama3.1:8b
+   ```
+
+The local model gets exactly the same five questions as Jev (built from
+[`judge.py`](open_source_finder/judge.py)), and the same ranking code turns its answers into
+the list. Some things to expect:
+
+- **Less accurate than Jev.** Local models pick a level for each question instead of giving
+  calibrated answers, and they report no confidence, so the **unsure** flag never appears.
+- **Slower.** Issues are judged one at a time; a 7B model on a laptop takes several seconds to
+  a minute per issue. Use `--max-issues` to judge fewer.
+- **Garbled answers are skipped.** If the model's reply can't be read, it's asked once more;
+  if that fails too, the issue is left out and listed after the run.
+
+Ollama is expected at `http://localhost:11434`. Set `OLLAMA_HOST` to use another address.
+Saved judgments are kept per model, so Ollama and Jev answers never mix.
 
 ## How it works
 
@@ -226,12 +262,16 @@ Scanning the same repo again is mostly free: judgments are saved in
 | `... is archived (read-only)` | The repo no longer accepts changes. | Pick an active repo. |
 | `... doesn't use GitHub issues` | The repo turned GitHub issues off (e.g. `torvalds/linux` uses mailing lists). | Check the repo's README for how it takes contributions. |
 | `Warning: ... spend.json was unreadable` | The spending record was damaged (e.g. the PC lost power mid-write). | Nothing to do: it was moved to `spend.json.bad` and a new total started. |
+| `Can't reach Ollama at http://localhost:11434` | Ollama isn't installed or isn't running. | Install it from [ollama.com](https://ollama.com/download) and start it, or set `OLLAMA_HOST` if it runs elsewhere. |
+| `Ollama doesn't have the model '...'` | That model hasn't been downloaded. | Run `ollama pull <model>`, or pick one you have (`ollama list`) with `--model`. |
+| `Ollama took over 300s to answer one issue` | The model is too big for your computer. | Use a smaller model, e.g. `--model qwen2.5:3b`. |
+| `Skipped N issue(s) whose answers the model garbled` | The local model gave unreadable answers twice. | Nothing to do for a few; if it's many, try a different model. |
 | `Hid N issue(s) that look too big or complex` | Not an error: those issues scored under 0.45. | Add `--all` to see them anyway. |
 
 ## Roadmap
 
 - [x] Judge issues with Jev
-- [ ] Judge issues with local models (e.g. through Ollama), so the tool can run free and offline
+- [x] Judge issues with local models through Ollama, so the tool can run free and offline
 - [ ] Compare judges on the same issues, to see which picks the best first contributions
 
 Judges are pluggable. A judge is any class with `judge(repo, issue)` that returns a
