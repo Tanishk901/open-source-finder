@@ -1,6 +1,7 @@
 # open-source-finder
 
 [![tests](https://github.com/Tanishk901/open-source-finder/actions/workflows/test.yml/badge.svg)](https://github.com/Tanishk901/open-source-finder/actions/workflows/test.yml)
+[![Latest release](https://img.shields.io/github/v/release/Tanishk901/open-source-finder)](https://github.com/Tanishk901/open-source-finder/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)
 [![Built with Jev](https://img.shields.io/badge/built%20with-Jev-8250df.svg)](https://docs.typesafe.ai)
@@ -25,6 +26,10 @@ narrow questions with typed, calibrated answers instead of generated text.
 > You can also judge issues for free with a [local model](#run-free-with-a-local-model-ollama),
 > or try the tool with `--mock`.
 > This is a community project, not affiliated with TypeSafe AI.
+
+**New in 0.2.0:** a free [local-model judge](#run-free-with-a-local-model-ollama), saved
+judgments so re-scans are mostly free, and newcomer-labeled issues judged first. See the
+[changelog](CHANGELOG.md) for everything.
 
 ## Contents
 
@@ -63,6 +68,10 @@ python3 -m venv .venv
 
 This installs the `open-source-finder` command inside the project's own `.venv` folder, so
 it doesn't affect the rest of your system.
+
+To install a specific release instead of the latest code, clone that version's tag, e.g.
+`git clone --branch v0.2.0 https://github.com/Tanishk901/open-source-finder`. All versions
+are listed on the [releases page](https://github.com/Tanishk901/open-source-finder/releases).
 
 ## Add your API key
 
@@ -273,6 +282,9 @@ Scanning the same repo again is mostly free: judgments are saved in
 
 - [x] Judge issues with Jev
 - [x] Judge issues with local models through Ollama, so the tool can run free and offline
+- [x] Save judgments, so scanning a repo again only pays for issues that changed
+- [ ] Test the local-model judge against real models, and tune its prompt
+- [ ] Find repos for you: search GitHub by language for repos with open beginner issues, then scan the best few
 - [ ] Compare judges on the same issues, to see which picks the best first contributions
 
 Judges are pluggable. A judge is any class with `judge(repo, issue)` that returns a
@@ -294,8 +306,8 @@ project.
    .venv/bin/python -m pytest
    ```
 
-   The tests use no network and need no API key. They cover the ranking policy, conversion of
-   SDK responses, and the budget cap.
+   The tests use no network, no API key and no Ollama. They cover the ranking policy, GitHub
+   fetching and errors, the saved-judgment cache, the budget cap, and the Jev and Ollama judges.
 3. Make your change on a new branch, add or update a test if behavior changes, and open a pull
    request that explains what you changed and why.
 
@@ -306,12 +318,15 @@ project.
 | [`cli.py`](open_source_finder/cli.py) | Command-line options, running the scan, and printing the table or JSON |
 | [`github.py`](open_source_finder/github.py) | Fetching issues and comments from the GitHub API |
 | [`judge.py`](open_source_finder/judge.py) | The five Jev questions and turning answers into a `Judgment` |
+| [`ollama.py`](open_source_finder/ollama.py) | The local-model judge: the same questions, asked through Ollama |
 | [`rank.py`](open_source_finder/rank.py) | Weights, thresholds, flags, and sorting (pure code, no network) |
+| [`cache.py`](open_source_finder/cache.py) | Saving judgments so unchanged issues aren't judged (or paid for) again |
 | [`mock.py`](open_source_finder/mock.py) | Keyword-based judge for trying the tool without a key |
 | [`budget.py`](open_source_finder/budget.py) | Loading `.env`, and the spending cap |
 
-**Good places to start:** a new judge (see [Roadmap](#roadmap)), better mock rules, or tuning
-the thresholds in `rank.py` against real repos.
+**Good places to start:** trying `--judge ollama` with a real model and reporting how it ranks
+(see [Roadmap](#roadmap)), better mock rules, or tuning the thresholds in `rank.py` against
+real repos. Add a line to [CHANGELOG.md](CHANGELOG.md) for any change users will notice.
 
 ## Credits
 
