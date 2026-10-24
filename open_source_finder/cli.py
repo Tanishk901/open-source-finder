@@ -7,26 +7,35 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 
 from . import budget, github
+from .ollama import OllamaError, UnreadableReply
 from .rank import MIN_BEGINNER, NOT_A_TASK, TOO_HARD, rank, size_label
 
 TITLE_WIDTH = 46
 WORKERS = 8  # Jev requests in flight at once
+# Ollama answers about one request at a time by default; more in flight would just queue and time out.
+OLLAMA_WORKERS = 1
 
 # A judge is any object with judge(repo, issue) -> rank.Judgment.
-# To add a new one (e.g. a local LLM), write the class and register it here.
-JUDGES = ["jev", "mock"]
+# To add a new one, write the class and register it here.
+JUDGES = ["jev", "ollama", "mock"]
+DEFAULT_MODELS = {"jev": "jev-latest", "ollama": "qwen2.5:7b", "mock": None}
 
 
 def make_judge(name, model, use_cache=True):
     if name == "mock":
         from .mock import MockJudge
         return MockJudge()
-    from .judge import QUESTIONS, JevJudge
-    judge = JevJudge(model=model)
+    if name == "ollama":
+        from .ollama import PROMPT, OllamaJudge
+        judge, questions = OllamaJudge(model=model), PROMPT
+        model = f"ollama:{model}"
+    else:
+        from .judge import QUESTIONS, JevJudge
+        judge, questions = JevJudge(model=model), QUESTIONS
     if not use_cache:
         return judge
     from .cache import CachedJudge
-    return CachedJudge(judge, model, QUESTIONS)
+    return CachedJudge(judge, model, questions)
 
 
 def positive_int(text):
@@ -49,12 +58,15 @@ def main(argv=None):
                       help="also show issues judged too big or complex for a first contribution")
     scan.add_argument("--judge", choices=JUDGES, default="jev", help="who judges the issues (default jev)")
     scan.add_argument("--mock", action="store_true", help="shorthand for --judge mock (no API key needed)")
-    scan.add_argument("--model", default="jev-latest", help="TypeSafe model: jev-latest (default) or jev-preview")
+    scan.add_argument("--model", help="for jev: jev-latest (default) or jev-preview; "
+                                      "for ollama: any model you've pulled (default qwen2.5:7b)")
     scan.add_argument("--no-cache", action="store_true",
                       help="judge every issue again, even ones unchanged since the last scan")
     args = parser.parse_args(argv)
     if args.mock:
         args.judge = "mock"
+    if args.model is None:
+        args.model = DEFAULT_MODELS[args.judge]
 
     # Issue titles often contain emoji; don't crash on consoles that can't show them (e.g. Windows cp1252).
     for stream in (sys.stdout, sys.stderr):
@@ -81,7 +93,7 @@ def main(argv=None):
               f"them and may already be claimed: {', '.join(f'#{n}' for n in no_comments)}. "
               "Scan again later (or set GITHUB_TOKEN) to check.", file=sys.stderr)
 
-    judged = judge_all(judge, repo, issues)
+    judged = judge_all(judge, repo, issues, workers=OLLAMA_WORKERS if args.judge == "ollama" else WORKERS)
     if getattr(judge, "hits", 0):
         print(f"Reused {judge.hits} saved judgment(s) for issues unchanged since the last scan (free; "
               "--no-cache to judge them again).", file=sys.stderr)
@@ -93,11 +105,12 @@ def main(argv=None):
         print_table(repo, ranked[:args.top], skipped, args, labels)
 
 
-def judge_all(judge, repo, issues):
-    """Judge issues WORKERS at a time. Stops early, keeping what's done, on the spending cap or Ctrl+C."""
+def judge_all(judge, repo, issues, workers=WORKERS):
+    """Judge issues `workers` at a time. Stops early, keeping what's done, on the spending cap or Ctrl+C."""
     judged = []
     budget_error = None
-    pool = ThreadPoolExecutor(WORKERS)
+    unreadable = []
+    pool = ThreadPoolExecutor(workers)
     futures = {pool.submit(judge.judge, repo, issue): issue for issue in issues}
     try:
         done = 0
@@ -114,6 +127,11 @@ def judge_all(judge, repo, issues):
                     budget_error = error
                     for pending in futures:
                         pending.cancel()
+            except UnreadableReply:
+                unreadable.append(futures[future].number)  # one bad answer shouldn't end the run
+            except OllamaError as error:
+                pool.shutdown(cancel_futures=True)
+                sys.exit(f"\n{error}")
             except Exception as error:
                 # SDK errors (bad key, unknown model, rate limit) carry a clear message; show it, not a traceback.
                 if type(error).__module__.startswith("typesafe_sdk"):
@@ -126,13 +144,17 @@ def judge_all(judge, repo, issues):
         pool.shutdown(wait=False, cancel_futures=True)
     if budget_error:
         print(f"\n{budget_error} Showing the {len(judged)} issues judged so far.", end="", file=sys.stderr)
+    if unreadable:
+        print(f"\nSkipped {len(unreadable)} issue(s) whose answers the model garbled: "
+              f"{', '.join(f'#{n}' for n in sorted(unreadable))}.", end="", file=sys.stderr)
     print(file=sys.stderr)
     order = {issue.number: i for i, issue in enumerate(issues)}
     return sorted(judged, key=lambda pair: order[pair[0].number])
 
 
 def print_table(repo, ranked, skipped, args, labels=()):
-    mode = "mock rules (not Jev)" if args.judge == "mock" else f"Jev ({args.model})"
+    mode = {"mock": "mock rules (not Jev)", "ollama": f"local model {args.model} (Ollama)"}.get(
+        args.judge, f"Jev ({args.model})")
     print(f"\n{repo.full_name} - best issues for a first contribution - judged by {mode}")
     if labels:
         print(f"Looked first at issues labeled: {', '.join(labels)}\n")
@@ -165,7 +187,7 @@ def print_json(repo, ranked, skipped, args, labels=()):
     out = {
         "repo": repo.full_name,
         "beginner_labels": list(labels),
-        "judge": args.judge if args.judge != "jev" else args.model,
+        "judge": {"jev": args.model, "ollama": f"ollama:{args.model}"}.get(args.judge, args.judge),
         "ranked": [{
             "number": r.issue.number, "title": r.issue.title, "url": r.issue.url,
             "labels": r.issue.labels, "beginner": r.beginner, "flags": r.flags,
