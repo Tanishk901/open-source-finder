@@ -6,6 +6,7 @@ Set GITHUB_TOKEN to raise the rate limit from 60 to 5,000 requests an hour.
 import json
 import os
 import re
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -33,6 +34,10 @@ class GitHubError(Exception):
     pass
 
 
+class RateLimited(GitHubError):
+    pass
+
+
 @dataclass
 class Issue:
     number: int
@@ -44,6 +49,7 @@ class Issue:
     comment_count: int
     updated_at: str = ""  # changes on every edit, label change and comment
     recent_comments: list[str] = field(default_factory=list)
+    comments_skipped: bool = False  # it has comments, but the rate limit stopped us reading them
 
 
 @dataclass
@@ -81,7 +87,7 @@ def _get(path):
                 minutes = max(1, -(-(int(reset) - int(datetime.now(timezone.utc).timestamp())) // 60))
                 when = f" It resets in about {minutes} minute(s)."
             hint = "" if os.environ.get("GITHUB_TOKEN") else " Set GITHUB_TOKEN in .env to raise the limit to 5,000/hour."
-            raise GitHubError(f"GitHub rate limit hit.{when}{hint}") from error
+            raise RateLimited(f"GitHub rate limit hit.{when}{hint}") from error
         raise GitHubError(f"GitHub returned {error.code} for {path}") from error
     except urllib.error.URLError as error:
         raise GitHubError(f"Could not reach GitHub: {error.reason}") from error
@@ -162,9 +168,22 @@ def fetch_issues(full_name, max_issues, labels=None):
         take(f"/repos/{full_name}/issues?state=open&labels={urllib.parse.quote(label)}")
     take(f"/repos/{full_name}/issues?state=open")
 
+    # Hitting the rate limit here shouldn't throw away the issues already fetched: judge the rest
+    # without their comments (the caller warns), and stop asking once GitHub has said no.
+    out_of_quota = threading.Event()
+
+    def comments_of(issue):
+        if not out_of_quota.is_set():
+            try:
+                return _recent_comments(full_name, issue)
+            except RateLimited:
+                out_of_quota.set()
+        issue.comments_skipped = True
+        return []
+
     with ThreadPoolExecutor(WORKERS) as pool:
         commented = [issue for issue in issues if issue.comment_count]
-        for issue, comments in zip(commented, pool.map(lambda i: _recent_comments(full_name, i), commented)):
+        for issue, comments in zip(commented, pool.map(comments_of, commented)):
             issue.recent_comments = comments
     return issues
 

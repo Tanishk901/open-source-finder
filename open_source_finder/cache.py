@@ -60,7 +60,8 @@ class CachedJudge:
                     self.hits += 1
                     return judgment
         judgment = self.inner.judge(repo, issue)
-        if updated_at:
+        # Judged without its comments (rate limit): don't keep that answer, so the next scan reads them.
+        if updated_at and not getattr(issue, "comments_skipped", False):
             with self._lock:
                 self._entries[key] = {"updated_at": updated_at, "version": self.version,
                                       "saved_at": time.time(), "judgment": asdict(judgment)}

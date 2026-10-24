@@ -413,3 +413,42 @@ def test_fetch_issues_records_when_each_issue_last_changed(monkeypatch):
     raw = dict(fake_issue(1), updated_at="2026-10-02T03:04:05Z")
     monkeypatch.setattr(github, "_get", lambda path: [raw] if "page=1" in path else [])
     assert github.fetch_issues("a/b", 5, labels=[])[0].updated_at == "2026-10-02T03:04:05Z"
+
+
+def test_rate_limit_while_reading_comments_keeps_the_issues(monkeypatch):
+    raws = [dict(fake_issue(n), comments=3) for n in (1, 2, 3)]
+    asked = []
+
+    def fake_get(path):
+        if "/comments" not in path:
+            return raws if "page=1" in path else []
+        asked.append(path)
+        if "/issues/2/" in path:
+            raise github.RateLimited("GitHub rate limit hit.")
+        return [{"body": "I'm working on this"}]
+
+    monkeypatch.setattr(github, "_get", fake_get)
+    monkeypatch.setattr(github, "WORKERS", 1)  # one at a time, so the order is fixed
+    issues = github.fetch_issues("a/b", 5, labels=[])
+    assert [(i.number, i.recent_comments, i.comments_skipped) for i in issues] == [
+        (1, ["I'm working on this"], False), (2, [], True), (3, [], True)]
+    assert not any("/issues/3/" in path for path in asked)  # stopped asking once GitHub said no
+
+
+def test_answers_judged_without_comments_are_not_cached(cache_file):
+    repo, inner = SimpleNamespace(full_name="a/b"), CountingJudge()
+    item = SimpleNamespace(number=1, updated_at="2026-10-01T00:00:00Z", comments_skipped=True)
+    cache_file.CachedJudge(inner, "m", "q").judge(repo, item)
+    item.comments_skipped = False  # the next scan reads the comments
+    cache_file.CachedJudge(inner, "m", "q").judge(repo, item)
+    assert inner.calls == 2
+
+
+def test_scan_warns_which_issues_were_judged_without_comments(monkeypatch, capsys):
+    issues = [github._to_issue(dict(fake_issue(n), comments=2)) for n in (4, 5)]
+    issues[1].comments_skipped = True
+    monkeypatch.setattr(github, "fetch_repo", lambda name: github.Repo(name, "", "Python"))
+    monkeypatch.setattr(github, "beginner_labels", lambda name: [])
+    monkeypatch.setattr(github, "fetch_issues", lambda name, n, labels: issues)
+    cli.main(["scan", "a/b", "--mock"])
+    assert "1 issue(s) were judged without them and may already be claimed: #5." in capsys.readouterr().err

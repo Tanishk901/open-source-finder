@@ -75,6 +75,11 @@ def main(argv=None):
         sys.exit(str(error))
     except KeyboardInterrupt:
         sys.exit("\nCancelled.")
+    no_comments = [issue.number for issue in issues if issue.comments_skipped]
+    if no_comments:
+        print(f"GitHub rate limit hit while reading comments, so {len(no_comments)} issue(s) were judged without "
+              f"them and may already be claimed: {', '.join(f'#{n}' for n in no_comments)}. "
+              "Scan again later (or set GITHUB_TOKEN) to check.", file=sys.stderr)
 
     judged = judge_all(judge, repo, issues)
     if getattr(judge, "hits", 0):

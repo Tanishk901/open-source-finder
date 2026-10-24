@@ -216,6 +216,7 @@ Scanning the same repo again is mostly free: judgments are saved in
 | `The module '.venv' could not be loaded` (PowerShell) | You're not in the project folder. | `cd` into `open-source-finder` first, then run the command again. |
 | `No TYPESAFE_API_KEY found` | There's no `.env`, or the key line still says `paste_your_key_here`. | Follow [Add your API key](#add-your-api-key), or try `--mock`. |
 | `GitHub rate limit hit. It resets in about N minute(s).` | You've used GitHub's 60 requests an hour for unauthenticated users. | Add a free `GITHUB_TOKEN` (see [Add your API key](#add-your-api-key)), or wait. |
+| `GitHub rate limit hit while reading comments, so N issue(s) were judged without them` | The limit ran out partway through. The scan still finished, but for the listed issues nobody checked whether someone has already claimed them. | Read those issues' comments yourself, or scan again once the limit resets. Those answers aren't saved, so the next scan judges them again with their comments. |
 | `TypeSafe API error: ... Unknown model` | The `--model` name isn't one your account offers. | Use `jev-latest` (the default) or `jev-preview`. |
 | `TypeSafe API error: ... 401` | The API key is wrong or was revoked. | Create a new key in the [TypeSafe console](https://console.typesafe.ai/keys) and update `.env`. |
 | `Not found: /repos/...` | There's a typo in the repo name, or the repo is private. | Use the `owner/name` from the repo's GitHub URL. |
